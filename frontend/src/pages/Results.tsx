@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
 import MarkdownRenderer from '../components/shared/MarkdownRenderer';
+import SaveTemplateModal from '../components/shared/SaveTemplateModal';
 
 export default function Results() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentSession, fetchSession } = useSessionStore();
   const [activeTab, setActiveTab] = useState('');
+  const [showTemplateModal, setShowTemplateModal] = useState(true);
 
   useEffect(() => {
     if (id) fetchSession(id);
@@ -86,6 +88,10 @@ export default function Results() {
           </>
         )}
       </div>
+
+      {showTemplateModal && currentSession.status === 'complete' && (
+        <SaveTemplateModal session={currentSession} onClose={() => setShowTemplateModal(false)} />
+      )}
     </div>
   );
 }

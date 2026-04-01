@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react';
+import { applyNodeChanges, applyEdgeChanges, type Node, type Edge, type NodeChange, type EdgeChange } from '@xyflow/react';
 
 export interface AgentNodeData {
   id: string;
