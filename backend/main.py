@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import init_db
 from backend.routers import auth_router, sessions, templates, upload
+from backend.routers import suggest
 
 
 @asynccontextmanager
@@ -55,3 +56,4 @@ app.include_router(auth_router.router)
 app.include_router(sessions.router)
 app.include_router(templates.router)
 app.include_router(upload.router)
+app.include_router(suggest.router)

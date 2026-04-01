@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
 from sqlalchemy.orm import Session as DBSession
 from backend.database import get_db
 from backend.auth import require_auth
@@ -6,6 +9,8 @@ from backend.models.session import Session, SessionStatus
 from backend.models.schemas import (
     SessionCreate, SessionUpdate, SessionResponse, AgentConfig, SessionSettings,
 )
+from backend.services.session_runner import SessionRunner
+from backend.services.export import create_zip
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"], dependencies=[Depends(require_auth)])
 
@@ -82,3 +87,72 @@ def delete_session(session_id: str, db: DBSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Session not found")
     db.delete(session)
     db.commit()
+
+
+@router.post("/{session_id}/run")
+def start_session_run(session_id: str, db: DBSession = Depends(get_db)):
+    session = db.query(Session).filter(Session.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.agents:
+        raise HTTPException(status_code=400, detail="No agents configured")
+    if not session.problem_statement:
+        raise HTTPException(status_code=400, detail="No problem statement")
+    return {"ws_url": f"/api/sessions/{session_id}/ws"}
+
+
+@router.websocket("/{session_id}/ws")
+async def session_websocket(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if not session:
+            await websocket.send_json({"type": "error", "message": "Session not found"})
+            await websocket.close()
+            return
+
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        try:
+            init_msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+            if init_msg.get("api_key"):
+                api_key = init_msg["api_key"]
+        except (asyncio.TimeoutError, Exception):
+            pass
+
+        if not api_key:
+            await websocket.send_json({"type": "error", "message": "No GEMINI_API_KEY configured"})
+            await websocket.close()
+            return
+
+        runner = SessionRunner(websocket, session, db, api_key)
+        await runner.run()
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+@router.get("/{session_id}/export")
+def export_session(session_id: str, format: str = "json", db: DBSession = Depends(get_db)):
+    session = db.query(Session).filter(Session.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.outputs:
+        raise HTTPException(status_code=400, detail="Session has no outputs")
+    if format == "zip":
+        zip_bytes = create_zip(session.outputs, session.name or "session")
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={session.name or 'session'}.zip"},
+        )
+    return {"outputs": session.outputs}
