@@ -65,6 +65,7 @@ async def hybrid_selector(
     agent_names: list[str],
     max_rounds: int,
     forced_next: Optional[str] = None,
+    stress_context: Optional[dict] = None,
 ) -> str:
     if forced_next and forced_next in agent_names:
         last_spoke[forced_next] = turn_counter
@@ -93,6 +94,18 @@ async def hybrid_selector(
         last_message_preview=last_preview,
         phase_context=_phase_context(turn_counter, max_rounds),
     )
+
+    stress_addition = ""
+    if stress_context:
+        stress_addition = (
+            f"\n\nCurrent phase: {stress_context.get('phase_name', '')}\n"
+            f"Phase focus: {stress_context.get('focus_question', '')}\n"
+            f"Sub-phase: {stress_context.get('sub_phase', '')} — {stress_context.get('sub_phase_directive', '')}\n\n"
+            f"In Challenge sub-phase: prioritize adversarial agents.\n"
+            f"In Comprehend sub-phase: rotate evenly — everyone must state their reading.\n"
+            f"In Synthesize/Conclude: prioritize agents who haven't committed a position yet."
+        )
+    prompt += stress_addition
 
     async def _call():
         return await support_agent.on_messages(
