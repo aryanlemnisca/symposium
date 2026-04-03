@@ -40,6 +40,28 @@ async def review(req: ReviewRequest):
     return {"result": result}
 
 
+@router.post("/prd-panel")
+async def suggest_prd_panel(body: dict):
+    agents = body.get("agents", [])
+    problem_statement = body.get("problem_statement", "")
+    if not agents:
+        return {"selected": [], "rationale": {}, "product_agent": ""}
+    result = await ai_suggest.suggest_prd_panel(agents, problem_statement, _get_api_key())
+    return result
+
+
+@router.post("/enhance-persona")
+async def enhance_persona(body: dict):
+    name = body.get("name", "")
+    persona = body.get("persona", "")
+    role_tag = body.get("role_tag", "")
+    other_agents = body.get("other_agents", [])
+    if not persona:
+        return {"result": ""}
+    result = await ai_suggest.enhance_persona(name, persona, role_tag, other_agents, _get_api_key())
+    return {"result": result}
+
+
 @router.post("/agents")
 async def suggest_agents(req: AgentSuggestionRequest):
     result = await ai_suggest.suggest_agents(req.problem_statement, req.mode, _get_api_key())

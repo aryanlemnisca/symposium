@@ -18,6 +18,7 @@ export interface SessionSettings {
   overseer_interval: number;
   min_rounds_before_convergence: number;
   prd_panel_rounds: number;
+  prd_panel_names?: string[];
 }
 
 export interface SessionData {

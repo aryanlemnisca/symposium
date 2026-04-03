@@ -23,6 +23,31 @@ body {
   box-sizing: border-box;
 }
 
+button {
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input, textarea, select {
+  cursor: text;
+}
+
+a {
+  cursor: pointer;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }

@@ -41,6 +41,7 @@ class SessionRunner:
             overseer_interval=settings.get("overseer_interval", 10),
             min_rounds_before_convergence=settings.get("min_rounds_before_convergence", 45),
             prd_panel_rounds=settings.get("prd_panel_rounds", 10),
+            prd_panel_names=settings.get("prd_panel_names", []),
         )
 
         session.status = SessionStatus.running
@@ -52,6 +53,7 @@ class SessionRunner:
             mode = config.mode
             if mode == "product":
                 panel_messages = await run_prd_mini_panel(config, living_artifact, self.emit)
+                await self.emit("phase_transition", {"phase": "synthesis"})
                 synthesis_text, prd_text = await generate_synthesis_and_prd(
                     config.main_model, config.gemini_api_key, config.temperature,
                     panel_messages,

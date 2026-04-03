@@ -32,9 +32,30 @@ interface CanvasState {
   setDrawerOpen: (open: boolean) => void;
 
   rebuildEdges: () => void;
+  reset: () => void;
 }
 
 let nodeIdCounter = 0;
+
+const CIRCLE_RADIUS = 200;
+const CIRCLE_CENTER = { x: 350, y: 300 };
+
+function arrangeCircle(nodes: Node<AgentNodeData>[]): Node<AgentNodeData>[] {
+  if (nodes.length === 0) return nodes;
+  if (nodes.length === 1) {
+    return [{ ...nodes[0], position: CIRCLE_CENTER }];
+  }
+  return nodes.map((node, i) => {
+    const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2;
+    return {
+      ...node,
+      position: {
+        x: CIRCLE_CENTER.x + CIRCLE_RADIUS * Math.cos(angle),
+        y: CIRCLE_CENTER.y + CIRCLE_RADIUS * Math.sin(angle),
+      },
+    };
+  });
+}
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: [],
@@ -60,13 +81,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position,
       data: { ...agent, id: nodeId },
     };
-    set((s) => ({ nodes: [...s.nodes, newNode] }));
-    get().rebuildEdges();
+    set((s) => {
+      const newNodes = [...s.nodes, newNode];
+      return { nodes: arrangeCircle(newNodes), edges: [] };
+    });
   },
 
   removeAgent: (nodeId) => {
-    set((s) => ({ nodes: s.nodes.filter((n) => n.id !== nodeId) }));
-    get().rebuildEdges();
+    set((s) => {
+      const newNodes = s.nodes.filter((n) => n.id !== nodeId);
+      return { nodes: arrangeCircle(newNodes), edges: [] };
+    });
   },
 
   updateAgent: (nodeId, data) => {
@@ -93,19 +118,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setDrawerOpen: (open) => set({ drawerOpen: open }),
 
   rebuildEdges: () => {
-    const { nodes } = get();
-    const edges: Edge[] = [];
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        edges.push({
-          id: `e-${nodes[i].id}-${nodes[j].id}`,
-          source: nodes[i].id,
-          target: nodes[j].id,
-          style: { stroke: '#2a3050', strokeWidth: 1 },
-          animated: false,
-        });
-      }
-    }
-    set({ edges });
+    set({ edges: [] });
+  },
+
+  reset: () => {
+    nodeIdCounter = 0;
+    set({ nodes: [], edges: [], selectedNodeId: null, drawerOpen: false });
   },
 }));

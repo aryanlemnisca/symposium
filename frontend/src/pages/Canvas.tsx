@@ -28,11 +28,20 @@ const defaultSettings: SessionSettings = {
   prd_panel_rounds: 10,
 };
 
+interface SuggestedAgent {
+  name: string;
+  persona: string;
+  model: string;
+  role_tag: string;
+  mission?: string;
+  rationale?: string;
+}
+
 export default function Canvas() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentSession, fetchSession, updateSession } = useSessionStore();
-  const { nodes, edges, onNodesChange, onEdgesChange, selectNode, addAgent } = useCanvasStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, selectNode, addAgent, reset: resetCanvas } = useCanvasStore();
 
   const [problemStatement, setProblemStatement] = useState('');
   const [mode, setMode] = useState('product');
@@ -40,11 +49,31 @@ export default function Canvas() {
   const [isLive, setIsLive] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  // AI suggest agents
+  const [suggestingAgents, setSuggestingAgents] = useState(false);
+  const [suggestedAgents, setSuggestedAgents] = useState<SuggestedAgent[]>([]);
+
+  // Pre-run confirmation + PRD panel
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [prdPanelNames, setPrdPanelNames] = useState<string[]>([]);
+  const [prdRationale, setPrdRationale] = useState<Record<string, string>>({});
+  const [prdProductAgent, setPrdProductAgent] = useState<string>('');
+  const [loadingPrdSuggest, setLoadingPrdSuggest] = useState(false);
+
   const { connect, connected: _connected, messages: wsMessages } = useWebSocket({
     sessionId: id || '',
     onMessage: (msg) => {
-      if (msg.type === 'agent_message' && !msg.streaming) {
+      if (msg.type === 'agent_message' && msg.streaming) {
+        // Agent starts speaking — activate glow
         useCanvasStore.getState().setActiveAgent(msg.source as string);
+      }
+      if (msg.type === 'agent_message_chunk') {
+        // Keep glow active during streaming
+        useCanvasStore.getState().setActiveAgent(msg.source as string);
+      }
+      if (msg.type === 'agent_message' && !msg.streaming) {
+        // Agent finished — clear glow
+        useCanvasStore.getState().setActiveAgent(null);
       }
       if (msg.type === 'session_complete') {
         useCanvasStore.getState().setActiveAgent(null);
@@ -54,8 +83,10 @@ export default function Canvas() {
   });
 
   useEffect(() => {
+    resetCanvas();
+    setLoaded(false);
     if (id) fetchSession(id);
-  }, [id, fetchSession]);
+  }, [id, fetchSession, resetCanvas]);
 
   useEffect(() => {
     if (currentSession && !loaded) {
@@ -80,16 +111,94 @@ export default function Canvas() {
       id: n.id, name: n.data.name, model: n.data.model, persona: n.data.persona,
       tools: n.data.tools, role_tag: n.data.role_tag, canvas_position: n.position,
     }));
+    // Auto-name from problem statement if still "New Session"
+    const autoName = currentSession?.name === 'New Session' && problemStatement
+      ? problemStatement.split('\n')[0].slice(0, 60).trim() || 'New Session'
+      : undefined;
     await updateSession(id, {
+      ...(autoName ? { name: autoName } : {}),
       problem_statement: problemStatement,
       mode: mode as SessionSettings['temperature'] extends number ? 'product' | 'problem' : never,
       agents: agentConfigs as any,
       settings,
     });
-  }, [id, nodes, problemStatement, mode, settings, updateSession]);
+  }, [id, nodes, problemStatement, mode, settings, updateSession, currentSession?.name]);
 
-  const handleBeginSymposium = async () => {
-    await handleSave();
+  const handleSuggestAgents = async () => {
+    if (!problemStatement || problemStatement.length < 20) return;
+    setSuggestingAgents(true);
+    setSuggestedAgents([]);
+    try {
+      const res = await api.post<{ agents: SuggestedAgent[] }>('/suggest/agents', {
+        problem_statement: problemStatement,
+        mode,
+      });
+      setSuggestedAgents(res.agents || []);
+    } catch {
+      // ignore
+    } finally {
+      setSuggestingAgents(false);
+    }
+  };
+
+  const acceptSuggestedAgent = (agent: SuggestedAgent) => {
+    addAgent(
+      { id: '', name: agent.name, model: agent.model || 'gemini-3.1-pro-preview', persona: agent.persona, tools: [], role_tag: agent.role_tag },
+      { x: 250, y: 250 },
+    );
+    setSuggestedAgents((prev) => prev.filter((a) => a.name !== agent.name));
+  };
+
+  const acceptAllSuggested = () => {
+    suggestedAgents.forEach((agent) => {
+      addAgent(
+        { id: '', name: agent.name, model: agent.model || 'gemini-3.1-pro-preview', persona: agent.persona, tools: [], role_tag: agent.role_tag },
+        { x: 250, y: 250 },
+      );
+    });
+    setSuggestedAgents([]);
+  };
+
+  const handleBeginClick = async () => {
+    setShowConfirm(true);
+    if (mode === 'product' && prdPanelNames.length === 0) {
+      setLoadingPrdSuggest(true);
+      try {
+        const agentData = nodes.map((n) => ({
+          name: n.data.name, role_tag: n.data.role_tag, persona: n.data.persona,
+        }));
+        const res = await api.post<{ selected: string[]; rationale: Record<string, string>; product_agent: string }>('/suggest/prd-panel', {
+          agents: agentData,
+          problem_statement: problemStatement,
+        });
+        setPrdPanelNames(res.selected || []);
+        setPrdRationale(res.rationale || {});
+        setPrdProductAgent(res.product_agent || '');
+      } catch {
+        // Fallback: first 4
+        setPrdPanelNames(nodes.slice(0, 4).map((n) => n.data.name));
+      } finally {
+        setLoadingPrdSuggest(false);
+      }
+    }
+  };
+
+  const handleConfirmStart = async () => {
+    setShowConfirm(false);
+    // Inject prd_panel_names into settings before saving
+    const finalSettings = { ...settings, prd_panel_names: prdPanelNames };
+    setSettings(finalSettings);
+    if (!id) return;
+    const agentConfigs = nodes.map((n: Node<AgentNodeData>) => ({
+      id: n.id, name: n.data.name, model: n.data.model, persona: n.data.persona,
+      tools: n.data.tools, role_tag: n.data.role_tag, canvas_position: n.position,
+    }));
+    await updateSession(id, {
+      problem_statement: problemStatement,
+      mode: mode as any,
+      agents: agentConfigs as any,
+      settings: finalSettings,
+    });
     await api.post(`/sessions/${id}/run`);
     setIsLive(true);
     connect();
@@ -105,17 +214,17 @@ export default function Canvas() {
 
   if (isLive) {
     return (
-      <div className="h-screen flex flex-col" style={{ background: 'var(--color-navy)' }}>
+      <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--color-navy)' }}>
         <StatsBar messages={wsMessages} maxRounds={settings.max_rounds} />
-        <div className="flex-1 flex">
+        <div className="flex-1 flex min-h-0">
           <div className="w-2/5 h-full" style={{ borderRight: '1px solid var(--color-border)' }}>
             <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
             </ReactFlow>
           </div>
-          <div className="w-3/5 h-full flex flex-col">
+          <div className="w-3/5 h-full flex flex-col min-h-0">
             <LiveFeed messages={wsMessages} />
-            <div style={{ height: '30%', borderTop: '1px solid var(--color-border)' }}>
+            <div className="shrink-0 overflow-y-auto" style={{ height: '30%', borderTop: '1px solid var(--color-border)' }}>
               <ArtifactPanel messages={wsMessages} />
             </div>
           </div>
@@ -125,17 +234,51 @@ export default function Canvas() {
   }
 
   return (
-    <div className="h-screen flex" style={{ background: 'var(--color-navy)' }}>
-      <div className="w-80 h-full overflow-y-auto p-4 flex flex-col gap-4" style={{ background: 'var(--color-navy-light)', borderRight: '1px solid var(--color-border)' }}>
+    <div className="h-screen flex overflow-hidden" style={{ background: 'var(--color-navy)' }}>
+      <div className="w-80 h-full overflow-y-auto shrink-0 p-4 flex flex-col gap-4" style={{ background: 'var(--color-navy-light)', borderRight: '1px solid var(--color-border)' }}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold" style={{ color: 'var(--color-teal)' }}>Setup</h2>
           <button onClick={() => navigate('/sessions')} className="text-xs" style={{ color: 'var(--color-text-dim)' }}>Back</button>
         </div>
         <ProblemStatement value={problemStatement} onChange={setProblemStatement} />
         <ModeSelector value={mode} onChange={setMode} />
+
+        {/* Suggest Agents button */}
+        <button
+          onClick={handleSuggestAgents}
+          disabled={suggestingAgents || problemStatement.length < 20}
+          className="w-full py-2 rounded-lg text-sm disabled:opacity-40"
+          style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}
+        >
+          {suggestingAgents ? 'Generating agents...' : 'Suggest Agents'}
+        </button>
+
+        {/* Suggested agents list */}
+        {suggestedAgents.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-medium" style={{ color: 'var(--color-teal)' }}>Suggested Agents</span>
+              <button onClick={acceptAllSuggested} className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Add All</button>
+            </div>
+            {suggestedAgents.map((agent) => (
+              <div key={agent.name} className="p-3 rounded-lg text-xs" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)' }}>
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <span className="font-medium" style={{ color: 'var(--color-text)' }}>{agent.name.replace(/_/g, ' ')}</span>
+                    {agent.role_tag && <span className="ml-2 text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{agent.role_tag}</span>}
+                  </div>
+                  <button onClick={() => acceptSuggestedAgent(agent)} className="text-[10px] px-2 py-0.5 rounded shrink-0" style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}>Add</button>
+                </div>
+                {agent.rationale && <p style={{ color: 'var(--color-text-dim)' }}>{agent.rationale}</p>}
+              </div>
+            ))}
+            <button onClick={() => setSuggestedAgents([])} className="w-full text-[10px] py-1" style={{ color: 'var(--color-text-dim)' }}>Dismiss suggestions</button>
+          </div>
+        )}
+
         <AdvancedSettings settings={settings} onChange={setSettings} />
         <button onClick={handleSave} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Save Draft</button>
-        <button onClick={handleBeginSymposium} disabled={!problemStatement || nodes.length < 2} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
+        <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
         {nodes.length < 2 && (<p className="text-[10px]" style={{ color: '#fbbf24' }}>Add at least 2 agents to begin</p>)}
       </div>
       <div className="flex-1 h-full">
@@ -145,6 +288,118 @@ export default function Canvas() {
       </div>
       <AgentLibrary />
       <AgentDrawer />
+
+      {/* Pre-run confirmation modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 rounded-xl" style={{ background: 'var(--color-navy-light)', border: '1px solid var(--color-border)' }}>
+            <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--color-teal)' }}>Confirm Symposium</h2>
+
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>Problem Statement</p>
+              <p className="text-sm p-3 rounded-lg whitespace-pre-wrap" style={{ background: 'var(--color-navy)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>{problemStatement}</p>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>Mode</p>
+              <p className="text-sm" style={{ color: 'var(--color-text)' }}>{mode === 'product' ? 'Product Discussion' : 'Problem Discussion'}</p>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>Agents ({nodes.length})</p>
+              <div className="space-y-2">
+                {nodes.map((n) => (
+                  <div key={n.id} className="flex items-center gap-2 p-2 rounded-lg text-xs" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)' }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--color-navy-lighter)', border: '1px solid var(--color-border)' }}>
+                      <span className="text-[10px] font-bold" style={{ color: 'var(--color-teal)' }}>{n.data.name?.charAt(0)}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-medium" style={{ color: 'var(--color-text)' }}>{n.data.name?.replace(/_/g, ' ')}</span>
+                      {n.data.role_tag && <span className="ml-2 text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{n.data.role_tag}</span>}
+                      {!n.data.persona && <span className="ml-2 text-[10px]" style={{ color: '#f87171' }}>No persona</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>Settings</p>
+              <div className="flex gap-4 text-xs" style={{ color: 'var(--color-text-dim)' }}>
+                <span>{settings.max_rounds} rounds</span>
+                <span>Temp {settings.temperature}</span>
+                <span>Gate @ round {settings.gate_start_round}</span>
+              </div>
+            </div>
+
+            {/* PRD Panel Selection (Product mode only) */}
+            {mode === 'product' && (
+              <div className="mb-4">
+                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>
+                  PRD Panel Agents {loadingPrdSuggest && <span className="animate-pulse ml-1">(AI suggesting...)</span>}
+                </p>
+                <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-dim)' }}>
+                  These agents will co-author the PRD after the brainstorm. Click to toggle.
+                </p>
+                <div className="space-y-1.5">
+                  {nodes.map((n) => {
+                    const isSelected = prdPanelNames.includes(n.data.name);
+                    const isProduct = n.data.name === prdProductAgent;
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => {
+                          if (isProduct) return; // Can't deselect mandatory product agent
+                          setPrdPanelNames((prev) =>
+                            isSelected ? prev.filter((name) => name !== n.data.name) : [...prev, n.data.name]
+                          );
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg text-xs text-left"
+                        style={{
+                          background: isSelected ? 'var(--color-navy)' : 'transparent',
+                          border: `1px solid ${isSelected ? 'var(--color-teal-dim)' : 'var(--color-border)'}`,
+                          opacity: isProduct ? 1 : undefined,
+                        }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded flex items-center justify-center shrink-0"
+                          style={{
+                            background: isSelected ? 'var(--color-teal)' : 'transparent',
+                            border: `1px solid ${isSelected ? 'var(--color-teal)' : 'var(--color-border)'}`,
+                          }}
+                        >
+                          {isSelected && <span className="text-[9px] font-bold" style={{ color: 'var(--color-navy)' }}>✓</span>}
+                        </div>
+                        <span style={{ color: 'var(--color-text)' }}>{n.data.name?.replace(/_/g, ' ')}</span>
+                        {n.data.role_tag && <span className="text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{n.data.role_tag}</span>}
+                        {isProduct && <span className="text-[9px] px-1.5 py-0.5 rounded ml-auto" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Product Lead</span>}
+                        {prdRationale[n.data.name] && isSelected && !isProduct && (
+                          <span className="text-[9px] ml-auto" style={{ color: 'var(--color-text-dim)' }}>{prdRationale[n.data.name]}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {prdPanelNames.length < 2 && (
+                  <p className="text-[10px] mt-1" style={{ color: '#fbbf24' }}>Select at least 2 agents for the PRD panel</p>
+                )}
+              </div>
+            )}
+
+            {/* Warnings */}
+            {nodes.some((n) => !n.data.persona) && (
+              <div className="mb-4 p-2 rounded-lg text-xs" style={{ background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#f87171' }}>
+                Some agents have no persona defined. They may produce generic responses.
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Go Back</button>
+              <button onClick={handleConfirmStart} disabled={mode === 'product' && prdPanelNames.length < 2} className="flex-1 py-2.5 rounded-lg text-sm font-bold disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Start Session</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

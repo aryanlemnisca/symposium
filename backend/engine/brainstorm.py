@@ -4,6 +4,7 @@ Key change: all print() calls replaced with an async callback function
 that emits structured events (for WebSocket streaming)."""
 
 import asyncio
+import time
 from typing import Optional, Callable, Awaitable
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
@@ -19,6 +20,30 @@ from backend.engine.artifact import update_living_artifact, finalize_artifact
 from backend.engine.summary import generate_rolling_summary, build_agent_context
 
 EventCallback = Callable[[str, dict], Awaitable[None]]
+
+
+async def _extract_coverage_topics(
+    support_agent: AssistantAgent,
+    problem_statement: str,
+) -> dict[str, bool]:
+    """Use the support model to extract 4-8 key topics from the problem statement."""
+    prompt = (
+        "Extract 4-8 key topics or themes that MUST be discussed to fully address "
+        "this problem statement. Return ONLY a comma-separated list of short phrases "
+        "(2-4 words each), nothing else.\n\n"
+        f"Problem statement:\n{problem_statement}"
+    )
+    try:
+        response = await support_agent.on_messages(
+            [TextMessage(content=prompt, source="system")], CancellationToken()
+        )
+        if response and response.chat_message:
+            raw = response.chat_message.content.strip()
+            topics = [t.strip().lower() for t in raw.split(",") if t.strip()]
+            return {topic: False for topic in topics[:8]}
+    except Exception:
+        pass
+    return {}
 
 
 async def _call_with_retry(coro_fn, max_retries: int = 3, label: str = "call"):
@@ -77,7 +102,7 @@ async def run_brainstorm(
     messages = [TextMessage(content=config.problem_statement, source="user")]
     last_spoke = {name: 0 for name in config.agent_names}
     persona_turns = {name: 0 for name in config.agent_names}
-    c_coverage = {}
+    c_coverage = await _extract_coverage_topics(support_agent, config.problem_statement)
     living_artifact = {}
     rolling_summary = None
 
@@ -86,6 +111,7 @@ async def run_brainstorm(
     overseer_injections = 0
     convergence_triggers = 0
     forced_next = None
+    start_time = time.monotonic()
 
     await emit("session_started", {"max_rounds": config.max_rounds})
 
@@ -142,15 +168,33 @@ async def run_brainstorm(
             "content": "",
         })
 
-        async def _agent_call(a=agent, ctx=context):
-            return await a.on_messages(ctx, CancellationToken())
+        content = ""
+        try:
+            stream = agent.on_messages_stream(context, CancellationToken())
+            async for chunk in stream:
+                if hasattr(chunk, 'content') and isinstance(chunk.content, str):
+                    content = chunk.content
+                    await emit("agent_message_chunk", {
+                        "source": chosen,
+                        "round": turn_counter + 1,
+                        "content": chunk.content,
+                    })
+                elif hasattr(chunk, 'chat_message') and chunk.chat_message:
+                    content = chunk.chat_message.content or ""
+        except Exception:
+            # Fallback to non-streaming
+            async def _agent_call(a=agent, ctx=context):
+                return await a.on_messages(ctx, CancellationToken())
+            response = await _call_with_retry(_agent_call, label=chosen)
+            if response is None or response.chat_message is None:
+                turn_counter += 1
+                continue
+            content = response.chat_message.content or ""
 
-        response = await _call_with_retry(_agent_call, label=chosen)
-        if response is None or response.chat_message is None:
+        if not content:
             turn_counter += 1
             continue
 
-        content = response.chat_message.content or ""
         msg = TextMessage(content=content, source=chosen)
         messages.append(msg)
         last_spoke[chosen] = turn_counter
@@ -178,11 +222,18 @@ async def run_brainstorm(
 
         _update_coverage(c_coverage, content)
 
+        elapsed = time.monotonic() - start_time
+        avg_per_round = elapsed / max(turn_counter, 1)
+        remaining_rounds = config.max_rounds - turn_counter
+        eta_seconds = round(avg_per_round * remaining_rounds)
+
         await emit("stats", {
             "rounds": turn_counter,
             "gate_skips": gate_skips,
             "overseer_injections": overseer_injections,
             "c_coverage": c_coverage,
+            "elapsed_seconds": round(elapsed),
+            "eta_seconds": eta_seconds,
         })
 
         if turn_counter >= 10 and check_convergence(

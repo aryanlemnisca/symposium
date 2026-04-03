@@ -25,6 +25,7 @@ class SessionSettings(BaseModel):
     overseer_interval: int = 10
     min_rounds_before_convergence: int = 45
     prd_panel_rounds: int = 10
+    prd_panel_names: list[str] = []
 
 
 class SessionCreate(BaseModel):

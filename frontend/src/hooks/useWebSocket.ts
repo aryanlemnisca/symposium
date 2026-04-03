@@ -34,7 +34,30 @@ export function useWebSocket({ sessionId, apiKey, onMessage }: UseWebSocketOptio
     ws.onmessage = (event) => {
       try {
         const msg: WSMessage = JSON.parse(event.data);
-        setMessages((prev) => [...prev, msg]);
+
+        if (msg.type === 'agent_message_chunk') {
+          // Update the last streaming message in-place
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.type === 'agent_message' && last.streaming && last.source === msg.source) {
+              const updated = { ...last, content: msg.content };
+              return [...prev.slice(0, -1), updated];
+            }
+            return prev;
+          });
+        } else if (msg.type === 'agent_message' && !msg.streaming) {
+          // Final message replaces the streaming placeholder
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.type === 'agent_message' && last.streaming && last.source === msg.source) {
+              return [...prev.slice(0, -1), msg];
+            }
+            return [...prev, msg];
+          });
+        } else {
+          setMessages((prev) => [...prev, msg]);
+        }
+
         onMessage?.(msg);
       } catch {}
     };

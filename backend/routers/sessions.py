@@ -12,7 +12,7 @@ from backend.models.schemas import (
 from backend.services.session_runner import SessionRunner
 from backend.services.export import create_zip
 
-router = APIRouter(prefix="/api/sessions", tags=["sessions"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 def _session_to_response(s: Session) -> dict:
@@ -33,13 +33,13 @@ def _session_to_response(s: Session) -> dict:
 
 
 @router.get("")
-def list_sessions(db: DBSession = Depends(get_db)):
+def list_sessions(db: DBSession = Depends(get_db), _=Depends(require_auth)):
     sessions = db.query(Session).order_by(Session.created_at.desc()).all()
     return [_session_to_response(s) for s in sessions]
 
 
 @router.post("", status_code=201)
-def create_session(req: SessionCreate, db: DBSession = Depends(get_db)):
+def create_session(req: SessionCreate, db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = Session(
         name=req.name,
         mode=req.mode,
@@ -56,7 +56,7 @@ def create_session(req: SessionCreate, db: DBSession = Depends(get_db)):
 
 
 @router.get("/{session_id}")
-def get_session(session_id: str, db: DBSession = Depends(get_db)):
+def get_session(session_id: str, db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -64,7 +64,7 @@ def get_session(session_id: str, db: DBSession = Depends(get_db)):
 
 
 @router.patch("/{session_id}")
-def update_session(session_id: str, req: SessionUpdate, db: DBSession = Depends(get_db)):
+def update_session(session_id: str, req: SessionUpdate, db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -81,7 +81,7 @@ def update_session(session_id: str, req: SessionUpdate, db: DBSession = Depends(
 
 
 @router.delete("/{session_id}", status_code=204)
-def delete_session(session_id: str, db: DBSession = Depends(get_db)):
+def delete_session(session_id: str, db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -90,7 +90,7 @@ def delete_session(session_id: str, db: DBSession = Depends(get_db)):
 
 
 @router.post("/{session_id}/run")
-def start_session_run(session_id: str, db: DBSession = Depends(get_db)):
+def start_session_run(session_id: str, db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -142,7 +142,7 @@ async def session_websocket(websocket: WebSocket, session_id: str):
 
 
 @router.get("/{session_id}/export")
-def export_session(session_id: str, format: str = "json", db: DBSession = Depends(get_db)):
+def export_session(session_id: str, format: str = "json", db: DBSession = Depends(get_db), _=Depends(require_auth)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

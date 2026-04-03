@@ -9,7 +9,9 @@ export default function Results() {
   const navigate = useNavigate();
   const { currentSession, fetchSession } = useSessionStore();
   const [activeTab, setActiveTab] = useState('');
-  const [showTemplateModal, setShowTemplateModal] = useState(true);
+  const [showTemplateModal, setShowTemplateModal] = useState(() => {
+    return !localStorage.getItem(`template_dismissed_${id}`);
+  });
 
   useEffect(() => {
     if (id) fetchSession(id);
@@ -90,7 +92,7 @@ export default function Results() {
       </div>
 
       {showTemplateModal && currentSession.status === 'complete' && (
-        <SaveTemplateModal session={currentSession} onClose={() => setShowTemplateModal(false)} />
+        <SaveTemplateModal session={currentSession} onClose={() => { setShowTemplateModal(false); localStorage.setItem(`template_dismissed_${id}`, '1'); }} />
       )}
     </div>
   );

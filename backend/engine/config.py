@@ -25,13 +25,7 @@ class EngineConfig:
     agent_names: list[str] = field(default_factory=list)
     prd_panel_names: list[str] = field(default_factory=list)
 
-    artifact_schedule: dict = field(default_factory=lambda: {
-        20: ("C-Level Verdicts", 1),
-        40: ("Product Concepts Proposed and Killed", 2),
-        55: ("Architectural Decisions", 3),
-        65: ("Physics and Logic Engine Constraints", 4),
-        75: ("Design Constraints and Rejections", 5),
-    })
+    artifact_schedule: dict = field(default_factory=dict)
 
     convergence_keywords: list[str] = field(default_factory=lambda: [
         "i agree", "exactly right", "well said", "nothing to add",
@@ -48,14 +42,19 @@ class EngineConfig:
         self.agent_names = [a["name"] for a in self.agents]
         if not self.prd_panel_names:
             self.prd_panel_names = self.agent_names[:4]
-        if self.max_rounds <= 30:
-            self.artifact_schedule = {
-                10: ("C-Level Verdicts", 1),
-                20: ("Key Decisions", 2),
-            }
-        elif self.max_rounds <= 60:
-            self.artifact_schedule = {
-                15: ("C-Level Verdicts", 1),
-                30: ("Product Concepts Proposed and Killed", 2),
-                45: ("Architectural Decisions", 3),
-            }
+        if not self.artifact_schedule:
+            self.artifact_schedule = self._build_artifact_schedule()
+
+    def _build_artifact_schedule(self) -> dict:
+        """Build artifact milestones as percentages of max_rounds."""
+        milestones = [
+            (0.25, "C-Level Verdicts"),
+            (0.45, "Product Concepts Proposed and Killed"),
+            (0.65, "Architectural Decisions"),
+            (0.80, "Design Constraints and Rejections"),
+        ]
+        schedule = {}
+        for i, (pct, name) in enumerate(milestones):
+            round_num = max(3, round(self.max_rounds * pct))
+            schedule[round_num] = (name, i + 1)
+        return schedule

@@ -19,23 +19,53 @@ interface Template {
   is_default: boolean;
 }
 
+interface SessionData {
+  id: string;
+  name: string;
+  status: string;
+  agents: TemplateAgent[];
+}
+
 export default function AgentLibrary() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [pastAgents, setPastAgents] = useState<TemplateAgent[]>([]);
   const [search, setSearch] = useState('');
   const addAgent = useCanvasStore((s) => s.addAgent);
   const nodes = useCanvasStore((s) => s.nodes);
 
   useEffect(() => {
     api.get<Template[]>('/templates').then(setTemplates).catch(() => {});
+
+    // Fetch agents from completed sessions, deduplicated
+    api.get<SessionData[]>('/sessions').then((sessions) => {
+      const seen = new Set<string>();
+      const agents: TemplateAgent[] = [];
+      for (const s of sessions) {
+        if (s.status !== 'complete' || !s.agents) continue;
+        for (const a of s.agents) {
+          if (a.name && a.persona && !seen.has(a.name)) {
+            seen.add(a.name);
+            agents.push(a);
+          }
+        }
+      }
+      setPastAgents(agents);
+    }).catch(() => {});
   }, []);
 
   const defaultTemplate = templates.find((t) => t.is_default);
-  const libraryAgents = defaultTemplate?.agents || [];
+  const defaultAgents = defaultTemplate?.agents || [];
+  const defaultNames = new Set(defaultAgents.map((a) => a.name));
 
-  const filteredAgents = libraryAgents.filter((a) =>
+  // Filter out agents that are already in the default template
+  const uniquePastAgents = pastAgents.filter((a) => !defaultNames.has(a.name));
+
+  const filterFn = (a: TemplateAgent) =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||
-    (a.role_tag || '').toLowerCase().includes(search.toLowerCase())
-  );
+    (a.role_tag || '').toLowerCase().includes(search.toLowerCase());
+
+  const filteredDefault = defaultAgents.filter(filterFn);
+  const filteredPast = uniquePastAgents.filter(filterFn);
 
   const handleAddBlank = () => {
     const offset = nodes.length * 30;
@@ -45,7 +75,7 @@ export default function AgentLibrary() {
     );
   };
 
-  const handleAddLibraryAgent = (agent: TemplateAgent) => {
+  const handleAddAgent = (agent: TemplateAgent) => {
     const offset = nodes.length * 30;
     addAgent(
       { id: '', name: agent.name, model: agent.model, persona: agent.persona, tools: agent.tools, role_tag: agent.role_tag },
@@ -61,11 +91,23 @@ export default function AgentLibrary() {
 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search agents..." className="w-full px-3 py-2 rounded-lg text-xs outline-none" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
 
-      {defaultTemplate && (
+      {filteredPast.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-dim)' }}>{defaultTemplate.name}</p>
-          {filteredAgents.map((agent) => (
-            <button key={agent.id || agent.name} onClick={() => handleAddLibraryAgent(agent)} className="w-full text-left p-3 rounded-lg mb-2 hover:opacity-80 transition-opacity" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-dim)' }}>From Past Sessions</p>
+          {filteredPast.map((agent) => (
+            <button key={agent.name} onClick={() => handleAddAgent(agent)} className="w-full text-left p-3 rounded-lg mb-2 hover:opacity-80 transition-opacity" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{agent.name.replace(/_/g, ' ')}</p>
+              {agent.role_tag && (<span className="text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{agent.role_tag}</span>)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {defaultTemplate && filteredDefault.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-dim)' }}>{defaultTemplate.name} <span style={{ color: 'var(--color-teal-dim)' }}>DEFAULT</span></p>
+          {filteredDefault.map((agent) => (
+            <button key={agent.id || agent.name} onClick={() => handleAddAgent(agent)} className="w-full text-left p-3 rounded-lg mb-2 hover:opacity-80 transition-opacity" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)' }}>
               <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{agent.name.replace(/_/g, ' ')}</p>
               {agent.role_tag && (<span className="text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{agent.role_tag}</span>)}
             </button>
