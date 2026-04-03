@@ -9,6 +9,7 @@ export default function ModeSelector({ value, onChange }: Props) {
       {[
         { key: 'product', label: 'Product Discussion' },
         { key: 'problem_discussion', label: 'Problem Discussion' },
+        { key: 'stress_test', label: 'Stress Test' },
       ].map((mode) => (
         <button key={mode.key} onClick={() => onChange(mode.key)} className="flex-1 py-2 rounded-md text-xs font-medium transition-colors" style={{ background: value === mode.key ? 'var(--color-teal)' : 'transparent', color: value === mode.key ? 'var(--color-navy)' : 'var(--color-text-dim)' }}>
           {mode.label}

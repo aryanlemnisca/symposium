@@ -70,9 +70,15 @@ export function useWebSocket({ sessionId, apiKey, onMessage }: UseWebSocketOptio
     wsRef.current?.close();
   }, []);
 
+  const sendCommand = useCallback((action: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action }));
+    }
+  }, []);
+
   useEffect(() => {
     return () => { wsRef.current?.close(); };
   }, []);
 
-  return { connect, disconnect, connected, messages };
+  return { connect, disconnect, connected, messages, sendCommand };
 }

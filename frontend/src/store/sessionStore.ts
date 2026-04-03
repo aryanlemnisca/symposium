@@ -19,6 +19,32 @@ export interface SessionSettings {
   min_rounds_before_convergence: number;
   prd_panel_rounds: number;
   prd_panel_names?: string[];
+  stress_test_min_rounds_per_phase?: number;
+}
+
+export interface UploadedDocument {
+  id: string;
+  filename: string;
+  filetype: string;
+  content_text: string;
+  size_bytes: number;
+  uploaded_at: string;
+}
+
+export interface Phase {
+  number: number;
+  name: string;
+  document_ids: string[];
+  focus_question: string;
+  key_subquestions: string[];
+  rationale: string;
+  status: 'pending' | 'active' | 'complete';
+  start_round: number | null;
+  end_round: number | null;
+  artifact: string | null;
+  confirmed: string[];
+  contested: string[];
+  open_questions: string[];
 }
 
 export interface SessionData {
@@ -34,6 +60,9 @@ export interface SessionData {
   canvas_state: Record<string, unknown>;
   document_ids: string[];
   outputs: Record<string, string> | null;
+  phases: Phase[] | null;
+  uploaded_documents: UploadedDocument[] | null;
+  stress_review_instructions: string | null;
 }
 
 interface SessionState {
