@@ -134,9 +134,18 @@ async def suggest_stress_test_agents(
 ) -> list:
     """Suggest agents for stress test based on documents and phases."""
     system = (
-        "You are designing a review board for a multi-agent stress-test session. "
-        "Every panel MUST have: a domain expert, a logic challenger, an execution realist, "
-        "and a scope guardian. Each agent has a 'lens' — what they specifically look for."
+        "You are an expert at designing review boards for structured document stress-test sessions. "
+        "Your job is to read the documents and problem statement, identify what DOMAIN this is, "
+        "then design agents whose expertise matches that domain.\n\n"
+        "You are NOT limited to any specific field. You must adapt to whatever the documents are about — "
+        "biotech roadmaps, financial models, research papers, product specs, policy documents, "
+        "engineering designs, strategy packs, or anything else.\n\n"
+        "Your design process:\n"
+        "1. Read the documents and identify the DOMAIN (what field, what type of work product)\n"
+        "2. Identify what EXPERTISE is needed to genuinely stress-test these documents\n"
+        "3. Design agents whose knowledge would be required on a real review board for this type of work\n"
+        "4. Ensure agents create PRODUCTIVE TENSION — they must disagree on priorities and catch each other's blind spots\n"
+        "5. Always include a Red-Team Skeptic whose job is to find contradictions, hidden assumptions, and overconfidence"
     )
     doc_summaries = "\n".join(f"- {d['filename']}: {d['content_text'][:1500]}" for d in documents)
     phases_text = "\n".join(
@@ -145,23 +154,52 @@ async def suggest_stress_test_agents(
     )
     prompt = (
         f"Documents being reviewed:\n{doc_summaries}\n\n"
-        f"Confirmed phases:\n{phases_text}\n\n"
+        f"Confirmed review phases:\n{phases_text}\n\n"
         f"Problem statement:\n{problem_statement}\n\n"
-        f"Suggest 4-6 agents. Each MUST have a distinct review lens.\n\n"
-        f"Mandatory roles:\n"
-        f"1. Domain expert — knows the subject matter\n"
-        f"2. Logic challenger — finds contradictions, weak reasoning\n"
-        f"3. Execution realist — challenges whether plans can actually be done\n"
-        f"4. Scope guardian — checks if documents cover what they claim\n\n"
+        f"Design 5-7 review agents for this stress-test board.\n\n"
+        f"MANDATORY STRUCTURE for every board (adapt the specific expertise to the domain):\n\n"
+        f"1. DOMAIN EXPERT AGENTS (2-3 agents)\n"
+        f"   Each must cover a distinct technical area relevant to the documents.\n"
+        f"   Their expertise must be specific to this domain — not generic.\n"
+        f"   Example: for a biotech roadmap, you'd want a strain engineering expert, "
+        f"a bioprocess expert, and an analytics expert — NOT generic 'Science Reviewer'.\n"
+        f"   Example: for a financial model, you'd want a unit economics expert, "
+        f"a market sizing expert, and a risk modeling expert.\n\n"
+        f"2. STRATEGY / SCOPE REVIEWER (1 agent)\n"
+        f"   Checks whether the work is focused on the right things, whether scope is defensible, "
+        f"whether trade-offs are explicit.\n\n"
+        f"3. EXECUTION / OPERATIONS REVIEWER (1 agent)\n"
+        f"   Checks whether what's written can actually be done — timelines, resources, "
+        f"dependencies, operational realism.\n\n"
+        f"4. RED-TEAM SKEPTIC (1 agent, ALWAYS required)\n"
+        f"   Assumes the documents are too optimistic. Finds contradictions, hidden assumptions, "
+        f"circular logic, weak gates, missing risks. Attacks overconfidence.\n\n"
+        f"Each agent MUST have:\n"
+        f"- A name that reflects their specific expertise (e.g. 'Scale_Up_Reviewer' not 'Reviewer_2')\n"
+        f"- A lens: what specifically they look for in documents\n"
+        f"- A bias: what they are naturally skeptical of\n"
+        f"- Distrust patterns: what specific failure modes they watch for\n\n"
+        f"Each agent's full persona MUST follow this structure:\n\n"
+        f"You are [Agent_Name] — the [TITLE].\n\n"
+        f"ONE-LINE MISSION: [what this agent exists to do in this review]\n\n"
+        f"REVIEW LENS: [what this agent specifically looks for in the documents]\n\n"
+        f"BACKGROUND: [2-3 sentences — specific expertise that qualifies them for this review]\n\n"
+        f"WHAT YOU CARE ABOUT MOST:\n- [4-5 bullet points specific to this review]\n\n"
+        f"WHAT YOU DISTRUST OR REJECT:\n- [4-5 bullet points — specific failure modes in these documents]\n\n"
+        f"DEFAULT QUESTIONS YOU ASK:\n- [4-5 questions only this agent would ask about these documents]\n\n"
+        f"BIASES / BLIND SPOTS:\n- [2-3 honest limitations of this agent's worldview]\n\n"
+        f"HOW YOU INTERACT WITH OTHERS:\n[2-3 sentences — specific behaviours, aggression level]\n\n"
+        f"STYLE: [1-2 sentences — voice, tone]\n\n"
+        f"IMPORTANT: Agents must refer to each other by NAME, never by number.\n\n"
         f"Return JSON array:\n"
         f'[{{\n'
-        f'  "name": "Agent_Name",\n'
+        f'  "name": "Specific_Expertise_Name",\n'
         f'  "role_tag": "2-3 word label",\n'
         f'  "mission": "one sentence",\n'
-        f'  "lens": "what this agent specifically looks for in documents",\n'
-        f'  "persona": "full structured persona (200-400 words)",\n'
+        f'  "lens": "what this agent specifically looks for in the documents",\n'
+        f'  "persona": "FULL persona following the structure above (300-500 words)",\n'
         f'  "model": "gemini-3.1-pro-preview",\n'
-        f'  "rationale": "why this agent creates productive tension"\n'
+        f'  "rationale": "why this agent creates productive tension on THIS specific review board"\n'
         f'}}]'
     )
 
