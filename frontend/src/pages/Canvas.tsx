@@ -13,9 +13,14 @@ import AgentLibrary from '../components/canvas/AgentLibrary';
 import ProblemStatement from '../components/setup/ProblemStatement';
 import ModeSelector from '../components/setup/ModeSelector';
 import AdvancedSettings from '../components/setup/AdvancedSettings';
+import DocumentUpload from '../components/setup/DocumentUpload';
+import PhaseCards from '../components/setup/PhaseCards';
 import LiveFeed from '../components/session/LiveFeed';
 import ArtifactPanel from '../components/session/ArtifactPanel';
 import StatsBar from '../components/session/StatsBar';
+import DocumentSidebar from '../components/session/DocumentSidebar';
+import PhasePauseCard from '../components/session/PhasePauseCard';
+import type { UploadedDocument, Phase } from '../store/sessionStore';
 
 const nodeTypes = { agentNode: AgentNode };
 
@@ -53,6 +58,14 @@ export default function Canvas() {
   const [suggestingAgents, setSuggestingAgents] = useState(false);
   const [suggestedAgents, setSuggestedAgents] = useState<SuggestedAgent[]>([]);
 
+  // Stress test state
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDocument[]>([]);
+  const [phases, setPhases] = useState<Phase[]>([]);
+  const [phasesConfirmed, setPhasesConfirmed] = useState(false);
+  const [reviewInstructions, setReviewInstructions] = useState('');
+  const [analysing, setAnalysing] = useState(false);
+  const [reinterpreting, setReinterpreting] = useState(false);
+
   // Pre-run confirmation + PRD panel
   const [showConfirm, setShowConfirm] = useState(false);
   const [prdPanelNames, setPrdPanelNames] = useState<string[]>([]);
@@ -60,7 +73,7 @@ export default function Canvas() {
   const [prdProductAgent, setPrdProductAgent] = useState<string>('');
   const [loadingPrdSuggest, setLoadingPrdSuggest] = useState(false);
 
-  const { connect, connected: _connected, messages: wsMessages } = useWebSocket({
+  const { connect, connected: _connected, messages: wsMessages, sendCommand } = useWebSocket({
     sessionId: id || '',
     onMessage: (msg) => {
       if (msg.type === 'agent_message' && msg.streaming) {
@@ -141,6 +154,55 @@ export default function Canvas() {
     }
   };
 
+  const handleAnalyseDocuments = async () => {
+    if (!id) return;
+    await updateSession(id, { uploaded_documents: uploadedDocs as any });
+    setAnalysing(true);
+    try {
+      const res = await api.post<{ phases: Phase[]; review_instructions: string }>(`/sessions/${id}/stress/analyse-documents`);
+      const phasesWithIds = (res.phases || []).map((p: any, i: number) => ({
+        ...p,
+        number: i + 1,
+        status: 'pending' as const,
+        document_ids: p.document_ids || uploadedDocs.map((d) => d.id),
+        key_subquestions: p.key_subquestions || [],
+        start_round: null,
+        end_round: null,
+        artifact: null,
+        confirmed: [],
+        contested: [],
+        open_questions: [],
+      }));
+      setPhases(phasesWithIds);
+      setReviewInstructions(res.review_instructions || '');
+    } catch {
+      // ignore
+    } finally {
+      setAnalysing(false);
+    }
+  };
+
+  const handleReinterpret = async () => {
+    if (!id) return;
+    setReinterpreting(true);
+    try {
+      const res = await api.post<{ phases: Phase[] }>(`/sessions/${id}/stress/reinterpret-phases`, { phases });
+      if (res.phases) {
+        setPhases(res.phases.map((p: any, i: number) => ({ ...p, number: i + 1 })));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setReinterpreting(false);
+    }
+  };
+
+  const handleConfirmPhases = async () => {
+    if (!id) return;
+    await api.post(`/sessions/${id}/stress/confirm-phases`, { phases, review_instructions: reviewInstructions });
+    setPhasesConfirmed(true);
+  };
+
   const acceptSuggestedAgent = (agent: SuggestedAgent) => {
     addAgent(
       { id: '', name: agent.name, model: agent.model || 'gemini-3.1-pro-preview', persona: agent.persona, tools: [], role_tag: agent.role_tag },
@@ -186,7 +248,11 @@ export default function Canvas() {
   const handleConfirmStart = async () => {
     setShowConfirm(false);
     // Inject prd_panel_names into settings before saving
-    const finalSettings = { ...settings, prd_panel_names: prdPanelNames };
+    const finalSettings = {
+      ...settings,
+      prd_panel_names: prdPanelNames,
+      stress_test_min_rounds_per_phase: settings.stress_test_min_rounds_per_phase || 20,
+    };
     setSettings(finalSettings);
     if (!id) return;
     const agentConfigs = nodes.map((n: Node<AgentNodeData>) => ({
@@ -218,9 +284,20 @@ export default function Canvas() {
         <StatsBar messages={wsMessages} maxRounds={settings.max_rounds} />
         <div className="flex-1 flex min-h-0">
           <div className="w-2/5 h-full" style={{ borderRight: '1px solid var(--color-border)' }}>
-            <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
-              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
-            </ReactFlow>
+            {mode === 'stress_test' && uploadedDocs.length > 0 ? (
+              <DocumentSidebar
+                documents={uploadedDocs}
+                phases={phases}
+                currentPhaseIndex={(() => {
+                  const latestStats = [...wsMessages].reverse().find((m) => m.type === 'stats');
+                  return (latestStats?.phase_number as number || 1) - 1;
+                })()}
+              />
+            ) : (
+              <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
+                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
+              </ReactFlow>
+            )}
           </div>
           <div className="w-3/5 h-full flex flex-col min-h-0">
             <LiveFeed messages={wsMessages} />
@@ -240,10 +317,21 @@ export default function Canvas() {
           <h2 className="text-lg font-bold" style={{ color: 'var(--color-teal)' }}>Setup</h2>
           <button onClick={() => navigate('/sessions')} className="text-xs" style={{ color: 'var(--color-text-dim)' }}>Back</button>
         </div>
+        {mode === 'stress_test' && (
+          <DocumentUpload documents={uploadedDocs} onChange={setUploadedDocs} />
+        )}
         <ProblemStatement value={problemStatement} onChange={setProblemStatement} />
         <ModeSelector value={mode} onChange={setMode} />
 
+        {/* Analyse Documents button (stress_test only) */}
+        {mode === 'stress_test' && uploadedDocs.length > 0 && problemStatement.length > 20 && !phases.length && (
+          <button onClick={handleAnalyseDocuments} disabled={analysing} className="w-full py-2 rounded-lg text-sm disabled:opacity-40" style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}>
+            {analysing ? 'Analysing documents...' : 'Analyse Documents'}
+          </button>
+        )}
+
         {/* Suggest Agents button */}
+        {mode !== 'stress_test' && (
         <button
           onClick={handleSuggestAgents}
           disabled={suggestingAgents || problemStatement.length < 20}
@@ -252,6 +340,7 @@ export default function Canvas() {
         >
           {suggestingAgents ? 'Generating agents...' : 'Suggest Agents'}
         </button>
+        )}
 
         {/* Suggested agents list */}
         {suggestedAgents.length > 0 && (
@@ -278,13 +367,38 @@ export default function Canvas() {
 
         <AdvancedSettings settings={settings} onChange={setSettings} />
         <button onClick={handleSave} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Save Draft</button>
-        <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
+        <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2 || (mode === 'stress_test' && !phasesConfirmed)} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
         {nodes.length < 2 && (<p className="text-[10px]" style={{ color: '#fbbf24' }}>Add at least 2 agents to begin</p>)}
       </div>
       <div className="flex-1 h-full">
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
-        </ReactFlow>
+        {mode === 'stress_test' && phases.length > 0 && !phasesConfirmed ? (
+          <div className="h-full overflow-y-auto p-6">
+            <PhaseCards
+              phases={phases}
+              onChange={setPhases}
+              onReinterpret={handleReinterpret}
+              onConfirm={handleConfirmPhases}
+              reinterpreting={reinterpreting}
+              confirmed={phasesConfirmed}
+            />
+            {reviewInstructions && (
+              <div className="mt-4">
+                <label className="text-[10px] block mb-1 uppercase tracking-wider" style={{ color: 'var(--color-text-dim)' }}>Review Instructions (editable)</label>
+                <textarea
+                  value={reviewInstructions}
+                  onChange={(e) => setReviewInstructions(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 rounded-lg text-xs outline-none resize-y"
+                  style={{ background: 'var(--color-navy)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontFamily: 'monospace' }}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
+          </ReactFlow>
+        )}
       </div>
       <AgentLibrary />
       <AgentDrawer />
