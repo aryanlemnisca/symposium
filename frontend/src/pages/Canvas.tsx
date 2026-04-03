@@ -114,6 +114,17 @@ export default function Canvas() {
           );
         });
       }
+      // Restore stress test state
+      if (currentSession.uploaded_documents?.length) {
+        setUploadedDocs(currentSession.uploaded_documents);
+      }
+      if (currentSession.phases?.length) {
+        setPhases(currentSession.phases);
+        setPhasesConfirmed(currentSession.phases.some((p) => p.status !== undefined));
+      }
+      if (currentSession.stress_review_instructions) {
+        setReviewInstructions(currentSession.stress_review_instructions);
+      }
       setLoaded(true);
     }
   }, [currentSession, loaded, addAgent]);
@@ -206,6 +217,13 @@ export default function Canvas() {
     if (!id) return;
     await api.post(`/sessions/${id}/stress/confirm-phases`, { phases, review_instructions: reviewInstructions });
     setPhasesConfirmed(true);
+
+    // Auto-set max_rounds based on phases
+    const minPerPhase = settings.stress_test_min_rounds_per_phase || 20;
+    const estimatedTotal = phases.length * minPerPhase;
+    if (settings.max_rounds < estimatedTotal) {
+      setSettings((s) => ({ ...s, max_rounds: Math.round(estimatedTotal * 1.5) }));
+    }
 
     // Auto-suggest agents for stress test
     if (nodes.length === 0) {
@@ -310,6 +328,7 @@ export default function Canvas() {
                   const latestStats = [...wsMessages].reverse().find((m) => m.type === 'stats');
                   return (latestStats?.phase_number as number || 1) - 1;
                 })()}
+                messages={wsMessages}
               />
             ) : (
               <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
@@ -343,9 +362,21 @@ export default function Canvas() {
 
         {/* Analyse Documents button (stress_test only) */}
         {mode === 'stress_test' && uploadedDocs.length > 0 && problemStatement.length > 20 && !phases.length && (
-          <button onClick={handleAnalyseDocuments} disabled={analysing} className="w-full py-2 rounded-lg text-sm disabled:opacity-40" style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}>
-            {analysing ? 'Analysing documents...' : 'Analyse Documents'}
-          </button>
+          analysing ? (
+            <div className="w-full py-4 rounded-lg text-center" style={{ border: '1px solid var(--color-teal-dim)', background: 'var(--color-navy)' }}>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '300ms' }} />
+              </div>
+              <p className="text-xs" style={{ color: 'var(--color-teal-dim)' }}>Analysing {uploadedDocs.length} documents...</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>Designing review phases and artifact schemas</p>
+            </div>
+          ) : (
+            <button onClick={handleAnalyseDocuments} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}>
+              Analyse Documents
+            </button>
+          )
         )}
 
         {/* Suggest Agents button */}
@@ -413,7 +444,7 @@ export default function Canvas() {
             )}
           </div>
         ) : (
-          <div className="flex-1 h-full flex flex-col">
+          <div className="flex-1 h-full flex flex-col min-h-0">
             {/* Compact phase summary when confirmed */}
             {mode === 'stress_test' && phasesConfirmed && phases.length > 0 && (
               <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-x-auto" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
@@ -437,7 +468,7 @@ export default function Canvas() {
               </div>
             )}
 
-            <div className="flex-1">
+            <div className="flex-1 min-h-0">
               <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
                 <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
               </ReactFlow>

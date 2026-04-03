@@ -203,13 +203,27 @@ async def run_stress_test(
                         phase_active = False
                         break
                 else:
-                    # Emit evaluation as overseer message
-                    reason = evaluation.get("continue_reason", "")
-                    if reason:
-                        msg = TextMessage(content=f"[OVERSEER — Phase {phase['number']} Eval]\n{reason}", source="Overseer")
-                        all_messages.append(msg)
-                        phase_messages.append(msg)
-                        await emit("overseer", {"content": msg.content, "round": total_round_count})
+                    # Build an orchestration directive, not raw eval output
+                    sub_phase_name, sub_phase_directive = overseer.get_sub_phase(phase_round_count)
+                    open_sqs = evaluation.get("open_questions", [])
+                    confirmed = evaluation.get("confirmed", [])
+
+                    parts = [f"[REVIEW CHAIR — Phase {phase['number']}, Round {phase_round_count}]"]
+                    parts.append(f"\nCurrent stage: {sub_phase_name} — {sub_phase_directive}")
+
+                    if confirmed:
+                        parts.append(f"\nSettled so far: {', '.join(confirmed[:3])}")
+                    if open_sqs:
+                        parts.append(f"\nStill unresolved: {', '.join(open_sqs[:3])}")
+                        parts.append(f"\nAgents, please address the unresolved items above. {sub_phase_directive}")
+                    else:
+                        parts.append(f"\nContinue working through the phase subquestions. {sub_phase_directive}")
+
+                    directive_content = "\n".join(parts)
+                    msg = TextMessage(content=directive_content, source="Overseer")
+                    all_messages.append(msg)
+                    phase_messages.append(msg)
+                    await emit("overseer", {"content": msg.content, "round": total_round_count})
 
             elif phase_round_count % 5 == 3:
                 # LLM drift check
