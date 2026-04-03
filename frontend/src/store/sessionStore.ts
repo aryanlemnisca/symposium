@@ -37,6 +37,7 @@ export interface Phase {
   document_ids: string[];
   focus_question: string;
   key_subquestions: string[];
+  artifact_schema: string[];
   rationale: string;
   status: 'pending' | 'active' | 'complete';
   start_round: number | null;

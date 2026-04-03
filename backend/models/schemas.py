@@ -30,6 +30,7 @@ class Phase(BaseModel):
     document_ids: list[str] = []
     focus_question: str = ""
     key_subquestions: list[str] = []
+    artifact_schema: list[str] = []        # section headings for the phase artifact
     rationale: str = ""
     status: PhaseStatus = PhaseStatus.pending
     start_round: Optional[int] = None

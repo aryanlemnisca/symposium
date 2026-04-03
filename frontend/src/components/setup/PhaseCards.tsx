@@ -133,6 +133,41 @@ export default function PhaseCards({ phases, onChange, onReinterpret, onConfirm,
               )}
             </div>
 
+            <div className="mb-2">
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-teal-dim)' }}>Artifact Sections</label>
+              {(phase.artifact_schema || []).map((section, sI) => (
+                <div key={sI} className="flex items-center gap-1 mb-1">
+                  <span className="text-[10px] shrink-0" style={{ color: 'var(--color-teal-dim)' }}>{sI + 1}.</span>
+                  {confirmed ? (
+                    <span className="text-xs" style={{ color: 'var(--color-text)' }}>{section}</span>
+                  ) : (
+                    <>
+                      <input
+                        value={section}
+                        onChange={(e) => {
+                          const schema = [...(phase.artifact_schema || [])];
+                          schema[sI] = e.target.value;
+                          updatePhase(i, { artifact_schema: schema });
+                        }}
+                        className="flex-1 px-2 py-0.5 rounded text-xs outline-none"
+                        style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal-dim)', color: 'var(--color-text)' }}
+                      />
+                      <button onClick={() => {
+                        const schema = (phase.artifact_schema || []).filter((_, idx) => idx !== sI);
+                        updatePhase(i, { artifact_schema: schema });
+                      }} className="text-[10px] px-1" style={{ color: '#f87171' }}>x</button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {!confirmed && (
+                <button onClick={() => {
+                  const schema = [...(phase.artifact_schema || []), ''];
+                  updatePhase(i, { artifact_schema: schema });
+                }} className="text-[10px] mt-1" style={{ color: 'var(--color-teal-dim)' }}>+ Add artifact section</button>
+              )}
+            </div>
+
             {phase.rationale && (
               <p className="text-[10px] italic" style={{ color: 'var(--color-text-dim)' }}>{phase.rationale}</p>
             )}

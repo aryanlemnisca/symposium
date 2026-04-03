@@ -81,6 +81,40 @@ def _parse_json(raw: str) -> dict | list | None:
         return None
 
 
+async def review_stress_test_problem(text: str, api_key: str) -> dict:
+    """Review and enhance a stress test problem statement."""
+    system = (
+        "You are an expert at designing document stress-test review sessions. "
+        "A good stress test problem statement must clearly define: what documents are being reviewed, "
+        "what decision the review supports, what a good review outcome looks like, "
+        "what is out of scope, and the specific questions the review must answer."
+    )
+    prompt = (
+        f'Review and enhance this stress test problem statement:\n\n'
+        f'"{text}"\n\n'
+        f'Return JSON:\n'
+        f'{{\n'
+        f'  "clarity": "Low|Medium|High",\n'
+        f'  "clarity_reason": "one sentence",\n'
+        f'  "missing": ["list of missing elements — e.g. review questions, scope boundaries, success criteria"],\n'
+        f'  "suggestions": ["2-3 specific improvements"],\n'
+        f'  "rewrite": "Enhanced version that:\\n'
+        f'    - Preserves the user\'s original intent\\n'
+        f'    - Clearly states WHAT is being reviewed (the documents/work product)\\n'
+        f'    - States WHAT DECISION this review supports\\n'
+        f'    - Lists the SPECIFIC QUESTIONS the review must answer\\n'
+        f'    - Defines WHAT A GOOD OUTCOME looks like\\n'
+        f'    - States WHAT IS OUT OF SCOPE\\n'
+        f'    - Uses structured formatting"\n'
+        f'}}'
+    )
+    raw = await _ask(system, prompt, api_key)
+    result = _parse_json(raw)
+    if result and isinstance(result, dict):
+        return result
+    return {"clarity": "Unknown", "clarity_reason": raw, "missing": [], "suggestions": [], "rewrite": ""}
+
+
 async def inline_suggestion(text: str, api_key: str) -> str:
     system = "You are a brainstorming session design assistant. Be concise and specific."
     prompt = (

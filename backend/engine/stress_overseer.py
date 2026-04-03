@@ -25,6 +25,15 @@ Primary question: {focus_question}
 Key questions to resolve this phase:
 {subquestions}
 
+THIS PHASE MUST PRODUCE AN ARTIFACT WITH THESE SECTIONS:
+{artifact_schema_text}
+
+Every contribution should work toward populating one of these sections.
+During Comprehend: gather evidence for each section.
+During Challenge: test claims that will go into each section.
+During Synthesize: draft positions for each section.
+During Conclude: finalize each section with explicit decisions [accept | revise | reopen | defer].
+
 {carry_forward_text}
 
 Do not re-open confirmed items unless you find a direct contradiction
@@ -93,33 +102,19 @@ Write the Phase {number} review artifact for a stress-test session.
 Phase name: {name}
 Documents reviewed: {docs}
 Focus question: {focus_question}
+Rounds: {start_round} to {end_round}
 
 Agent discussion (full phase):
 {phase_messages}
 
-Produce the artifact in this exact format:
+{artifact_format_instruction}
 
-PHASE {number} — {name}
-Documents reviewed: {docs}
-Rounds: {start_round} to {end_round}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-CONFIRMED SOUND
-[Each item: specific claim · why confirmed · which agents agreed]
-
-CONTESTED
-[Each item: specific claim · what the objection is · who raised it · not yet resolved]
-
-MUST FIX BEFORE NEXT PHASE
-[Blocking issues that must be resolved before the session can credibly proceed]
-
-OPEN QUESTIONS
-[Specific questions that emerged · why they matter · what answering them would change]
-
-CROSS-DOCUMENT CONTRADICTIONS FOUND
-[Any place where one document's claims conflict with another]
-
-Be specific — name documents, name agents, quote specific claims. No vague summaries.\
+RULES:
+- Be specific — name documents, name agents, quote specific claims
+- No vague summaries
+- Every finding must cite evidence from the documents or the discussion
+- Tag each finding with a decision status: [accept] [revise] [reopen] [defer]
+- The artifact must be decision-useful — a reader who wasn't in the session must know exactly what was found and what must change\
 """
 
 _FINAL_VERDICT_PROMPT = """\
@@ -218,6 +213,9 @@ class StressOverseer:
         phase = self.phases[phase_index]
         subquestions = "\n".join(f"· {q}" for q in phase.get("key_subquestions", []))
 
+        artifact_schema = phase.get("artifact_schema", [])
+        artifact_schema_text = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(artifact_schema)) if artifact_schema else "  (Use standard review format: Confirmed / Contested / Open Questions)"
+
         carry_parts = []
         if self.carry_forward["confirmed"]:
             carry_parts.append("Carried forward from previous phases:")
@@ -231,6 +229,7 @@ class StressOverseer:
             name=phase["name"],
             focus_question=phase.get("focus_question", ""),
             subquestions=subquestions,
+            artifact_schema_text=artifact_schema_text,
             carry_forward_text=carry_forward_text,
         )
         return TextMessage(content=content, source="Overseer")
@@ -369,6 +368,30 @@ class StressOverseer:
             if doc.get("id") in phase.get("document_ids", []):
                 doc_names.append(doc["filename"])
 
+        artifact_schema = phase.get("artifact_schema", [])
+        if artifact_schema:
+            schema_sections = "\n".join(f"## {s}\n[Fill this section from the discussion]" for s in artifact_schema)
+            artifact_format_instruction = (
+                f"Produce the artifact using this EXACT structure:\n\n"
+                f"PHASE {phase['number']} — {phase['name']}\n"
+                f"Documents reviewed: {', '.join(doc_names) or 'All documents'}\n"
+                f"Rounds: {phase.get('start_round', '?')} to {phase.get('end_round', '?')}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"{schema_sections}"
+            )
+        else:
+            artifact_format_instruction = (
+                f"Produce the artifact in this format:\n\n"
+                f"PHASE {phase['number']} — {phase['name']}\n"
+                f"Documents reviewed: {', '.join(doc_names) or 'All documents'}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"## Confirmed Sound\n[Each item: claim · evidence · decision status]\n\n"
+                f"## Contested\n[Each item: claim · objection · who raised it · decision status]\n\n"
+                f"## Must Fix\n[Blocking issues]\n\n"
+                f"## Open Questions\n[Specific questions · why they matter]\n\n"
+                f"## Cross-Document Contradictions\n[Contradictions found between documents]"
+            )
+
         prompt = _PHASE_ARTIFACT_PROMPT.format(
             number=phase["number"],
             name=phase["name"],
@@ -377,6 +400,7 @@ class StressOverseer:
             phase_messages=phase_text,
             start_round=phase.get("start_round", "?"),
             end_round=phase.get("end_round", "?"),
+            artifact_format_instruction=artifact_format_instruction,
         )
 
         async def _call():

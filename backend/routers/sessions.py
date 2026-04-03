@@ -76,6 +76,10 @@ def update_session(session_id: str, req: SessionUpdate, db: DBSession = Depends(
         update_data["agents"] = [a.model_dump() if isinstance(a, AgentConfig) else a for a in update_data["agents"]]
     if "settings" in update_data and update_data["settings"] is not None:
         update_data["settings"] = update_data["settings"].model_dump() if isinstance(update_data["settings"], SessionSettings) else update_data["settings"]
+    if "uploaded_documents" in update_data and update_data["uploaded_documents"] is not None:
+        update_data["uploaded_documents"] = [d.model_dump() if hasattr(d, 'model_dump') else d for d in update_data["uploaded_documents"]]
+    if "phases" in update_data and update_data["phases"] is not None:
+        update_data["phases"] = [p.model_dump() if hasattr(p, 'model_dump') else p for p in update_data["phases"]]
     for key, value in update_data.items():
         setattr(session, key, value)
     db.commit()

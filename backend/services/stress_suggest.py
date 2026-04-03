@@ -41,7 +41,7 @@ async def analyse_documents(
         "You sequence phases so dependency-heavy sections are reviewed before things that depend on them."
     )
     doc_summaries = "\n\n".join(
-        f"[{d['filename']}] ({d['size_bytes']} bytes):\n{d['content_text'][:2000]}"
+        f"[{d['filename']}] ({d['size_bytes']} bytes):\n{d['content_text']}"
         for d in documents
     )
     prompt = (
@@ -55,6 +55,14 @@ async def analyse_documents(
         f"- Sequence dependency-heavy sections before things that depend on them\n"
         f"- Flag cross-document dependencies explicitly in subquestions\n"
         f"- Take approximately 20-30 rounds of agent debate to exhaust\n\n"
+        f"For EACH phase, also design a specific ARTIFACT SCHEMA — the sections that the phase's "
+        f"output document must contain. Different phases need different artifact formats:\n"
+        f"- An alignment/charter phase needs: objective, scope, criteria, roles, rules\n"
+        f"- A logic review phase needs: strengths (with evidence), weaknesses (with evidence), "
+        f"challenged assumptions [accept|revise|reopen|defer], missing logic, next-step implication\n"
+        f"- A consistency phase needs: contradiction table (issue, documents affected, severity, resolution)\n"
+        f"- A final verdict phase needs: overall verdict, preserved strengths, issues to fix, locked decisions, revision brief\n"
+        f"Design each phase's artifact schema to match what that specific phase is reviewing.\n\n"
         f"Also generate a REVIEW INSTRUCTIONS block specific to these documents.\n"
         f"What should every reviewer check for given this type of work product?\n"
         f"Include domain-specific checks (not generic quality checks).\n\n"
@@ -67,6 +75,7 @@ async def analyse_documents(
         f'      "document_ids": ["doc_id_1", "doc_id_2"],\n'
         f'      "focus_question": "the primary question this phase must answer",\n'
         f'      "key_subquestions": ["subquestion 1", "subquestion 2", "subquestion 3"],\n'
+        f'      "artifact_schema": ["Section 1 heading", "Section 2 heading", "..."],\n'
         f'      "rationale": "why these documents and this question go together"\n'
         f'    }}\n'
         f'  ],\n'
@@ -95,7 +104,7 @@ async def reinterpret_phases(
         "logical sequencing and dependency ordering."
     )
     doc_summaries = "\n\n".join(
-        f"[{d['filename']}]: {d['content_text'][:1000]}"
+        f"[{d['filename']}]: {d['content_text']}"
         for d in documents
     )
     phases_text = json.dumps(current_phases, indent=2)
@@ -129,7 +138,7 @@ async def suggest_stress_test_agents(
         "Every panel MUST have: a domain expert, a logic challenger, an execution realist, "
         "and a scope guardian. Each agent has a 'lens' — what they specifically look for."
     )
-    doc_summaries = "\n".join(f"- {d['filename']}: {d['content_text'][:300]}" for d in documents)
+    doc_summaries = "\n".join(f"- {d['filename']}: {d['content_text'][:1500]}" for d in documents)
     phases_text = "\n".join(
         f"- Phase {p.get('number', '?')}: {p.get('name', '?')} — {p.get('focus_question', '?')}"
         for p in phases

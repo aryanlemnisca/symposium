@@ -4,15 +4,17 @@ import { useInlineSuggestion, useReview } from '../../hooks/useAISuggest';
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  mode?: string;
 }
 
-export default function ProblemStatement({ value, onChange }: Props) {
+export default function ProblemStatement({ value, onChange, mode }: Props) {
   const { suggestion, dismiss } = useInlineSuggestion(value);
   const { review, loading: reviewing, result: reviewResult, clearResult } = useReview();
   const [enhanced, setEnhanced] = useState<string | null>(null);
 
   const handleReview = async () => {
-    const res = await review(value, 'problem_statement');
+    const reviewType = mode === 'stress_test' ? 'stress_test_problem' : 'problem_statement';
+    const res = await review(value, reviewType);
     if (res?.rewrite && res.rewrite !== value) {
       setEnhanced(res.rewrite);
     }

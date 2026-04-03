@@ -156,7 +156,11 @@ export default function Canvas() {
 
   const handleAnalyseDocuments = async () => {
     if (!id) return;
-    await updateSession(id, { uploaded_documents: uploadedDocs as any });
+    await updateSession(id, {
+      uploaded_documents: uploadedDocs as any,
+      problem_statement: problemStatement,
+      mode: mode as any,
+    });
     setAnalysing(true);
     try {
       const res = await api.post<{ phases: Phase[]; review_instructions: string }>(`/sessions/${id}/stress/analyse-documents`);
@@ -166,6 +170,7 @@ export default function Canvas() {
         status: 'pending' as const,
         document_ids: p.document_ids || uploadedDocs.map((d) => d.id),
         key_subquestions: p.key_subquestions || [],
+        artifact_schema: p.artifact_schema || [],
         start_round: null,
         end_round: null,
         artifact: null,
@@ -201,6 +206,19 @@ export default function Canvas() {
     if (!id) return;
     await api.post(`/sessions/${id}/stress/confirm-phases`, { phases, review_instructions: reviewInstructions });
     setPhasesConfirmed(true);
+
+    // Auto-suggest agents for stress test
+    if (nodes.length === 0) {
+      setSuggestingAgents(true);
+      try {
+        const res = await api.post<{ agents: SuggestedAgent[] }>(`/sessions/${id}/stress/suggest-agents`);
+        setSuggestedAgents(res.agents || []);
+      } catch {
+        // ignore
+      } finally {
+        setSuggestingAgents(false);
+      }
+    }
   };
 
   const acceptSuggestedAgent = (agent: SuggestedAgent) => {
@@ -320,7 +338,7 @@ export default function Canvas() {
         {mode === 'stress_test' && (
           <DocumentUpload documents={uploadedDocs} onChange={setUploadedDocs} />
         )}
-        <ProblemStatement value={problemStatement} onChange={setProblemStatement} />
+        <ProblemStatement value={problemStatement} onChange={setProblemStatement} mode={mode} />
         <ModeSelector value={mode} onChange={setMode} />
 
         {/* Analyse Documents button (stress_test only) */}
@@ -365,7 +383,7 @@ export default function Canvas() {
           </div>
         )}
 
-        <AdvancedSettings settings={settings} onChange={setSettings} />
+        <AdvancedSettings settings={settings} onChange={setSettings} mode={mode} phaseCount={phases.length} />
         <button onClick={handleSave} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Save Draft</button>
         <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2 || (mode === 'stress_test' && !phasesConfirmed)} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
         {nodes.length < 2 && (<p className="text-[10px]" style={{ color: '#fbbf24' }}>Add at least 2 agents to begin</p>)}
@@ -395,9 +413,36 @@ export default function Canvas() {
             )}
           </div>
         ) : (
-          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
-          </ReactFlow>
+          <div className="flex-1 h-full flex flex-col">
+            {/* Compact phase summary when confirmed */}
+            {mode === 'stress_test' && phasesConfirmed && phases.length > 0 && (
+              <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-x-auto" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
+                <span className="text-[10px] uppercase tracking-wider shrink-0" style={{ color: 'var(--color-text-dim)' }}>Phases:</span>
+                {phases.map((p, i) => (
+                  <div key={i} className="flex items-center gap-1.5 shrink-0">
+                    {i > 0 && <span style={{ color: 'var(--color-border)' }}>→</span>}
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px]" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal-dim)' }}>
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>{p.number}</span>
+                      <span style={{ color: 'var(--color-text)' }}>{p.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Agent suggestion loading */}
+            {mode === 'stress_test' && phasesConfirmed && suggestingAgents && (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-sm animate-pulse" style={{ color: 'var(--color-teal-dim)' }}>Suggesting review agents based on your documents and phases...</div>
+              </div>
+            )}
+
+            <div className="flex-1">
+              <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
+                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
+              </ReactFlow>
+            </div>
+          </div>
         )}
       </div>
       <AgentLibrary />
