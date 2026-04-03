@@ -19,6 +19,10 @@ export default function StatsBar({ messages, maxRounds }: Props) {
   const overseerInjections = messages.filter((m) => m.type === 'overseer').length;
   const elapsed = (latestStats?.elapsed_seconds as number) || 0;
   const eta = (latestStats?.eta_seconds as number) || 0;
+  const phaseNumber = (latestStats?.phase_number as number) || null;
+  const phaseName = (latestStats?.phase_name as string) || '';
+  const subPhase = (latestStats?.sub_phase as string) || '';
+  const totalPhases = (latestStats?.total_phases as number) || 0;
 
   return (
     <div className="flex items-center gap-6 px-4 py-2 text-xs" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
@@ -30,6 +34,12 @@ export default function StatsBar({ messages, maxRounds }: Props) {
       )}
       {eta > 0 && rounds >= 3 && (
         <div><span style={{ color: 'var(--color-text-dim)' }}>ETA: </span><span style={{ color: '#fbbf24' }}>~{formatTime(eta)}</span></div>
+      )}
+      {phaseNumber && (
+        <div><span style={{ color: 'var(--color-text-dim)' }}>Phase: </span><span style={{ color: 'var(--color-teal)' }}>{phaseNumber}/{totalPhases}</span><span style={{ color: 'var(--color-text-dim)' }}> — {phaseName}</span></div>
+      )}
+      {subPhase && (
+        <div><span style={{ color: 'var(--color-text-dim)' }}>{subPhase}</span></div>
       )}
       <div className="flex-1" />
       <div className="w-32 h-1.5 rounded-full" style={{ background: 'var(--color-navy)' }}>

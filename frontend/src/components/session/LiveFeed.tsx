@@ -95,6 +95,51 @@ export default function LiveFeed({ messages }: Props) {
           };
           return (<div key={i} className="py-4 text-center"><div className="inline-block px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>{phaseLabels[msg.phase as string] || `Phase: ${msg.phase}`}</div></div>);
         }
+        if (msg.type === 'phase_directive') {
+          return (
+            <div key={i} className="py-4 text-center">
+              <div className="inline-block px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>
+                Phase {msg.phase_number as number}: {msg.phase_name as string}
+              </div>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-dim)' }}>{msg.focus_question as string}</p>
+            </div>
+          );
+        }
+        if (msg.type === 'drift_redirect') {
+          return (
+            <div key={i} className="px-3 py-2 text-xs rounded" style={{ background: '#1a1a2e', border: '1px solid #333', color: '#fbbf24' }}>
+              {msg.message as string}
+            </div>
+          );
+        }
+        if (msg.type === 'phase_artifact_written') {
+          return (
+            <div key={i} className="py-4 text-center">
+              <div className="inline-block px-4 py-2 rounded-lg text-xs" style={{ background: 'var(--color-navy-light)', border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal)' }}>
+                Phase {msg.phase_number as number} artifact written
+              </div>
+            </div>
+          );
+        }
+        if (msg.type === 'verdict_generating') {
+          return (
+            <div key={i} className="py-4 text-center">
+              <div className="inline-block px-4 py-2 rounded-lg text-sm font-medium animate-pulse" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>
+                Generating final readiness verdict...
+              </div>
+            </div>
+          );
+        }
+        if (msg.type === 'verdict_complete') {
+          return (
+            <div key={i} className="py-4">
+              <div className="p-4 rounded-xl" style={{ background: 'var(--color-navy-light)', border: '1px solid var(--color-teal)' }}>
+                <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-teal)' }}>Final Readiness Verdict</h3>
+                <CollapsibleMessage content={msg.content as string} />
+              </div>
+            </div>
+          );
+        }
         if (msg.type === 'session_complete') {
           return (<div key={i} className="py-4 text-center"><div className="inline-block px-6 py-3 rounded-lg text-sm font-bold" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Session Complete — {msg.terminated_by as string}</div></div>);
         }
