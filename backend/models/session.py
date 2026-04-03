@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, DateTime, JSON, Enum as SAEnum
+from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, Enum as SAEnum
 from backend.database import Base
 import enum
 
@@ -15,6 +15,7 @@ class SessionStatus(str, enum.Enum):
 class SessionMode(str, enum.Enum):
     product = "product"
     problem_discussion = "problem_discussion"
+    stress_test = "stress_test"
 
 
 class Session(Base):
@@ -34,3 +35,7 @@ class Session(Base):
     artifact = Column(JSON, nullable=True)
     outputs = Column(JSON, nullable=True)
     canvas_state = Column(JSON, default=dict)
+    phases = Column(JSON, nullable=True)
+    current_phase_index = Column(Integer, nullable=True)
+    uploaded_documents = Column(JSON, nullable=True)
+    stress_review_instructions = Column(Text, nullable=True)

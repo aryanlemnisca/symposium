@@ -6,6 +6,38 @@ from enum import Enum
 class SessionMode(str, Enum):
     product = "product"
     problem_discussion = "problem_discussion"
+    stress_test = "stress_test"
+
+
+class PhaseStatus(str, Enum):
+    pending = "pending"
+    active = "active"
+    complete = "complete"
+
+
+class UploadedDocument(BaseModel):
+    id: str
+    filename: str
+    filetype: str
+    content_text: str
+    size_bytes: int
+    uploaded_at: str
+
+
+class Phase(BaseModel):
+    number: int
+    name: str
+    document_ids: list[str] = []
+    focus_question: str = ""
+    key_subquestions: list[str] = []
+    rationale: str = ""
+    status: PhaseStatus = PhaseStatus.pending
+    start_round: Optional[int] = None
+    end_round: Optional[int] = None
+    artifact: Optional[str] = None
+    confirmed: list[str] = []
+    contested: list[str] = []
+    open_questions: list[str] = []
 
 
 class AgentConfig(BaseModel):
@@ -26,6 +58,7 @@ class SessionSettings(BaseModel):
     min_rounds_before_convergence: int = 45
     prd_panel_rounds: int = 10
     prd_panel_names: list[str] = []
+    stress_test_min_rounds_per_phase: int = 20
 
 
 class SessionCreate(BaseModel):
@@ -46,6 +79,9 @@ class SessionUpdate(BaseModel):
     settings: Optional[SessionSettings] = None
     canvas_state: Optional[dict] = None
     document_ids: Optional[list[str]] = None
+    phases: Optional[list[Phase]] = None
+    uploaded_documents: Optional[list[UploadedDocument]] = None
+    stress_review_instructions: Optional[str] = None
 
 
 class SessionResponse(BaseModel):
@@ -61,6 +97,9 @@ class SessionResponse(BaseModel):
     canvas_state: dict
     document_ids: list[str]
     outputs: Optional[dict] = None
+    phases: Optional[list[dict]] = None
+    uploaded_documents: Optional[list[dict]] = None
+    stress_review_instructions: Optional[str] = None
 
     class Config:
         from_attributes = True

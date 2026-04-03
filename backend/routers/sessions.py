@@ -29,6 +29,9 @@ def _session_to_response(s: Session) -> dict:
         "canvas_state": s.canvas_state or {},
         "document_ids": s.document_ids or [],
         "outputs": s.outputs,
+        "phases": s.phases,
+        "uploaded_documents": s.uploaded_documents,
+        "stress_review_instructions": s.stress_review_instructions,
     }
 
 
