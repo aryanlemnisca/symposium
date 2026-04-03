@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database import init_db
 from backend.routers import auth_router, sessions, templates, upload
 from backend.routers import suggest
+from backend.routers import stress_test
 
 
 @asynccontextmanager
@@ -56,3 +57,4 @@ app.include_router(sessions.router)
 app.include_router(templates.router)
 app.include_router(upload.router)
 app.include_router(suggest.router)
+app.include_router(stress_test.router)
