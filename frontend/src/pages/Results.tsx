@@ -21,7 +21,9 @@ export default function Results() {
     if (currentSession?.outputs) {
       const tabs = Object.keys(currentSession.outputs);
       if (tabs.length > 0 && !activeTab) {
-        const defaultTab = tabs.find((t) => t.includes('prd') || t.includes('conclusion')) || tabs[0];
+        const defaultTab = tabs.find((t) => t.includes('verdict'))
+          || tabs.find((t) => t.includes('prd') || t.includes('conclusion'))
+          || tabs[0];
         setActiveTab(defaultTab);
       }
     }
@@ -57,6 +59,14 @@ export default function Results() {
 
   const outputs = currentSession.outputs || {};
   const tabs = Object.keys(outputs);
+  const sortedTabs = [...tabs].sort((a, b) => {
+    if (a.includes('verdict')) return -1;
+    if (b.includes('verdict')) return 1;
+    if (a.includes('phase') && b.includes('phase')) return a.localeCompare(b);
+    if (a.includes('transcript')) return 1;
+    if (b.includes('transcript')) return -1;
+    return 0;
+  });
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-navy)' }}>
@@ -73,8 +83,13 @@ export default function Results() {
       </div>
 
       <div className="flex px-8 pt-4 gap-1" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className="px-4 py-2 text-sm rounded-t-lg" style={{ background: activeTab === tab ? 'var(--color-navy-light)' : 'transparent', color: activeTab === tab ? 'var(--color-teal)' : 'var(--color-text-dim)', borderBottom: activeTab === tab ? '2px solid var(--color-teal)' : '2px solid transparent' }}>
+        {sortedTabs.map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className="px-4 py-2 text-sm rounded-t-lg" style={{
+            background: activeTab === tab ? 'var(--color-navy-light)' : 'transparent',
+            color: activeTab === tab ? 'var(--color-teal)' : tab.includes('verdict') ? '#fbbf24' : 'var(--color-text-dim)',
+            borderBottom: activeTab === tab ? '2px solid var(--color-teal)' : '2px solid transparent',
+            fontWeight: tab.includes('verdict') ? 'bold' : 'normal',
+          }}>
             {tab.replace('.md', '').replace(/_/g, ' ')}
           </button>
         ))}
