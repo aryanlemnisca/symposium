@@ -21,6 +21,7 @@ class EngineConfig:
     min_rounds_before_convergence: int = 45
     rolling_summary_threshold: int = 70
     prd_panel_rounds: int = 10
+    stress_test_min_rounds_per_phase: int = 20
 
     agent_names: list[str] = field(default_factory=list)
     prd_panel_names: list[str] = field(default_factory=list)

@@ -130,8 +130,27 @@ async def session_websocket(websocket: WebSocket, session_id: str):
             await websocket.close()
             return
 
-        runner = SessionRunner(websocket, session, db, api_key)
-        await runner.run()
+        command_queue = asyncio.Queue()
+
+        async def receive_loop():
+            while True:
+                try:
+                    msg = await websocket.receive_json()
+                    await command_queue.put(msg)
+                except WebSocketDisconnect:
+                    await command_queue.put({"action": "disconnected"})
+                    break
+                except Exception:
+                    await command_queue.put({"action": "disconnected"})
+                    break
+
+        receive_task = asyncio.create_task(receive_loop())
+
+        try:
+            runner = SessionRunner(websocket, session, db, api_key)
+            await runner.run(receive=command_queue.get)
+        finally:
+            receive_task.cancel()
 
     except WebSocketDisconnect:
         pass
