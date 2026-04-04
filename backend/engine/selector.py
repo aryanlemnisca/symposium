@@ -74,7 +74,8 @@ async def hybrid_selector(
     last_speaker = _last_persona_speaker(messages, agent_names)
     candidates = [p for p in agent_names if p != last_speaker]
 
-    mandatory = [p for p in candidates if (turn_counter - last_spoke.get(p, 0)) >= 4]
+    rotation_threshold = 3 if stress_context else 4
+    mandatory = [p for p in candidates if (turn_counter - last_spoke.get(p, 0)) >= rotation_threshold]
     if mandatory:
         chosen = min(mandatory, key=lambda p: last_spoke.get(p, 0))
         last_spoke[chosen] = turn_counter

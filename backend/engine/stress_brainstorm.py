@@ -322,6 +322,7 @@ async def run_stress_test(
             if total_round_count >= config.gate_start_round:
                 should_speak, claim = await run_speech_gate(
                     support_agent, chosen, all_messages, config.agent_names,
+                    stress_test=True,
                 )
                 if not should_speak:
                     total_gate_skips += 1

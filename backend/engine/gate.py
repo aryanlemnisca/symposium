@@ -45,11 +45,40 @@ async def _call_with_retry(coro_fn, max_retries: int = 3, label: str = "call"):
     return None
 
 
+_STRESS_GATE_PROMPT = """\
+You are {agent_name} in a structured document review board.
+
+Recent discussion (last 10 messages):
+{recent_messages}
+
+Before speaking, state in ONE SENTENCE what you will contribute.
+
+A valid contribution in a stress-test review includes ANY of these:
+  · A specific challenge to a claim in the documents (with evidence)
+  · A defense of a claim that has been challenged (with evidence)
+  · A new finding from the documents that hasn't been raised
+  · A cross-document contradiction or dependency issue
+  · A specific response to another agent's point (agree or disagree WITH reasoning)
+  · An explicit decision recommendation [accept/revise/reopen/defer] with justification
+
+These do NOT qualify:
+  · Restating what someone already said without adding evidence
+  · Vague agreement ("I concur with the general direction")
+  · Repeating your own previous point
+
+If you cannot identify a contribution that adds evidence or advances a decision, respond exactly:
+SKIP
+
+Your one sentence (or SKIP):\
+"""
+
+
 async def run_speech_gate(
     support_agent: AssistantAgent,
     agent_name: str,
     messages: list,
     all_agent_names: list[str],
+    stress_test: bool = False,
 ) -> Tuple[bool, str]:
     recent = [
         m for m in messages[-12:]
@@ -60,7 +89,8 @@ async def run_speech_gate(
         f"[{getattr(m, 'source', '?')}]: {getattr(m, 'content', '')[:200]}"
         for m in recent
     )
-    prompt = _GATE_PROMPT.format(agent_name=agent_name, recent_messages=recent_text)
+    template = _STRESS_GATE_PROMPT if stress_test else _GATE_PROMPT
+    prompt = template.format(agent_name=agent_name, recent_messages=recent_text)
 
     async def _call():
         return await support_agent.on_messages(
