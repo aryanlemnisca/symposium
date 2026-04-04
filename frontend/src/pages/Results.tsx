@@ -21,7 +21,8 @@ export default function Results() {
     if (currentSession?.outputs) {
       const tabs = Object.keys(currentSession.outputs);
       if (tabs.length > 0 && !activeTab) {
-        const defaultTab = tabs.find((t) => t.includes('verdict'))
+        const defaultTab = tabs.find((t) => t.includes('executive'))
+          || tabs.find((t) => t.includes('verdict'))
           || tabs.find((t) => t.includes('prd') || t.includes('conclusion'))
           || tabs[0];
         setActiveTab(defaultTab);
@@ -60,12 +61,16 @@ export default function Results() {
   const outputs = currentSession.outputs || {};
   const tabs = Object.keys(outputs);
   const sortedTabs = [...tabs].sort((a, b) => {
-    if (a.includes('verdict')) return -1;
-    if (b.includes('verdict')) return 1;
-    if (a.includes('phase') && b.includes('phase')) return a.localeCompare(b);
-    if (a.includes('transcript')) return 1;
-    if (b.includes('transcript')) return -1;
-    return 0;
+    const order = (t: string) => {
+      if (t.includes('executive')) return 0;
+      if (t.includes('verdict')) return 1;
+      if (t.includes('phase')) return 2;
+      if (t.includes('transcript')) return 9;
+      return 5;
+    };
+    const diff = order(a) - order(b);
+    if (diff !== 0) return diff;
+    return a.localeCompare(b);
   });
 
   return (

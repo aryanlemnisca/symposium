@@ -51,7 +51,12 @@ export default function PhaseCards({ phases, onChange, onReinterpret, onConfirm,
             <button onClick={onReinterpret} disabled={reinterpreting} className="text-[10px] px-2 py-1 rounded disabled:opacity-40" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>
               {reinterpreting ? 'Re-interpreting...' : 'Re-interpret'}
             </button>
-            <button onClick={onConfirm} className="text-[10px] px-2 py-1 rounded font-medium" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>
+            <button
+              onClick={onConfirm}
+              disabled={phases.some((p) => !Array.isArray(p.artifact_schema) || p.artifact_schema.length === 0)}
+              className="text-[10px] px-2 py-1 rounded font-medium disabled:opacity-40"
+              style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}
+            >
               Confirm Phases
             </button>
           </div>
@@ -135,7 +140,12 @@ export default function PhaseCards({ phases, onChange, onReinterpret, onConfirm,
 
             <div className="mb-2">
               <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-teal-dim)' }}>Artifact Sections</label>
-              {(phase.artifact_schema || []).map((section, sI) => (
+              {(!Array.isArray(phase.artifact_schema) || phase.artifact_schema.length === 0) && !confirmed && (
+                <div className="p-2 rounded mb-2 text-[10px]" style={{ background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fbbf24' }}>
+                  No artifact sections defined. Add sections to specify what this phase's review output should contain.
+                </div>
+              )}
+              {(Array.isArray(phase.artifact_schema) ? phase.artifact_schema : []).map((section, sI) => (
                 <div key={sI} className="flex items-center gap-1 mb-1">
                   <span className="text-[10px] shrink-0" style={{ color: 'var(--color-teal-dim)' }}>{sI + 1}.</span>
                   {confirmed ? (

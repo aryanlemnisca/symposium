@@ -140,6 +140,16 @@ export default function LiveFeed({ messages }: Props) {
             </div>
           );
         }
+        if (msg.type === 'executive_summary') {
+          return (
+            <div key={i} className="py-4">
+              <div className="p-4 rounded-xl" style={{ background: 'var(--color-navy-light)', border: '2px solid var(--color-teal)' }}>
+                <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-teal)' }}>Executive Summary</h3>
+                <pre className="text-sm whitespace-pre-wrap" style={{ color: 'var(--color-text)', fontFamily: 'monospace', lineHeight: '1.6' }}>{msg.content as string}</pre>
+              </div>
+            </div>
+          );
+        }
         if (msg.type === 'session_complete') {
           return (<div key={i} className="py-4 text-center"><div className="inline-block px-6 py-3 rounded-lg text-sm font-bold" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Session Complete — {msg.terminated_by as string}</div></div>);
         }

@@ -175,20 +175,26 @@ export default function Canvas() {
     setAnalysing(true);
     try {
       const res = await api.post<{ phases: Phase[]; review_instructions: string }>(`/sessions/${id}/stress/analyse-documents`);
-      const phasesWithIds = (res.phases || []).map((p: any, i: number) => ({
-        ...p,
-        number: i + 1,
-        status: 'pending' as const,
-        document_ids: p.document_ids || uploadedDocs.map((d) => d.id),
-        key_subquestions: p.key_subquestions || [],
-        artifact_schema: p.artifact_schema || [],
-        start_round: null,
-        end_round: null,
-        artifact: null,
-        confirmed: [],
-        contested: [],
-        open_questions: [],
-      }));
+      const phasesWithIds = (res.phases || []).map((p: any, i: number) => {
+        const schema = Array.isArray(p.artifact_schema) ? p.artifact_schema
+          : typeof p.artifact_schema === 'string' ? p.artifact_schema.split('\n').filter(Boolean)
+          : [];
+
+        return {
+          ...p,
+          number: i + 1,
+          status: 'pending' as const,
+          document_ids: p.document_ids || uploadedDocs.map((d) => d.id),
+          key_subquestions: p.key_subquestions || [],
+          artifact_schema: schema,
+          start_round: null,
+          end_round: null,
+          artifact: null,
+          confirmed: [],
+          contested: [],
+          open_questions: [],
+        };
+      });
       setPhases(phasesWithIds);
       setReviewInstructions(res.review_instructions || '');
     } catch {

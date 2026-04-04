@@ -66,7 +66,7 @@ async def analyse_documents(
         f"Also generate a REVIEW INSTRUCTIONS block specific to these documents.\n"
         f"What should every reviewer check for given this type of work product?\n"
         f"Include domain-specific checks (not generic quality checks).\n\n"
-        f"Return JSON:\n"
+        f"Return JSON. EVERY phase MUST include artifact_schema — this is NOT optional:\n"
         f'{{\n'
         f'  "phases": [\n'
         f'    {{\n'
@@ -75,13 +75,22 @@ async def analyse_documents(
         f'      "document_ids": ["doc_id_1", "doc_id_2"],\n'
         f'      "focus_question": "the primary question this phase must answer",\n'
         f'      "key_subquestions": ["subquestion 1", "subquestion 2", "subquestion 3"],\n'
-        f'      "artifact_schema": ["Section 1 heading", "Section 2 heading", "..."],\n'
+        f'      "artifact_schema": [\n'
+        f'        "Section heading 1 — e.g. Strengths found (with document evidence)",\n'
+        f'        "Section heading 2 — e.g. Weaknesses found (with document evidence)",\n'
+        f'        "Section heading 3 — e.g. Challenged assumptions [accept|revise|reopen|defer]",\n'
+        f'        "Section heading 4",\n'
+        f'        "Section heading 5"\n'
+        f'      ],\n'
         f'      "rationale": "why these documents and this question go together"\n'
         f'    }}\n'
         f'  ],\n'
         f'  "review_instructions": "full review instructions block tailored to these documents",\n'
         f'  "suggested_min_rounds_per_phase": 20\n'
-        f'}}'
+        f'}}\n\n'
+        f"CRITICAL: artifact_schema must be an array of 4-6 strings per phase. Each string is a section heading.\n"
+        f"Different phases need DIFFERENT schemas. Do NOT use the same schema for every phase.\n"
+        f"The first phase should be an alignment/charter artifact. Middle phases should be review memos. The final phase should be a verdict."
     )
 
     raw = await _ask(system, prompt, api_key)

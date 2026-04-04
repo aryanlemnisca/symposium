@@ -97,6 +97,76 @@ def _build_stress_context(
     return context
 
 
+_EXEC_SUMMARY_PROMPT = """\
+You are a senior executive reading the output of a structured document stress-test review.
+
+You have been given:
+1. Per-phase review artifacts from {phase_count} phases
+2. A final readiness verdict
+
+Your job: produce a crisp executive summary that a busy leader can read in 2 minutes.
+
+PHASE ARTIFACTS:
+{all_artifacts}
+
+FINAL VERDICT:
+{verdict}
+
+Produce the summary in this EXACT format:
+
+EXECUTIVE SUMMARY
+━━━━━━━━━━━━━━━━━
+
+VERDICT: [one line — Ready / Not Ready / Conditionally Ready + one sentence why]
+
+WHAT'S SOUND:
+· [3-5 bullet points — the strongest confirmed elements, each one sentence]
+
+WHAT MUST CHANGE:
+· [3-5 bullet points — the most critical issues, each one sentence with specific action]
+
+KEY RISKS:
+· [2-3 bullet points — risks that could derail execution even if issues are fixed]
+
+RECOMMENDED NEXT STEP:
+[One sentence — the single most important thing to do now]
+
+Rules:
+- No hedging. Be direct.
+- Each bullet must be specific and actionable — no vague summaries.
+- If the verdict is "Not Ready," lead with what blocks progress.
+- Keep the entire summary under 300 words.\
+"""
+
+
+async def _generate_executive_summary(
+    support_agent: AssistantAgent,
+    phases: list[dict],
+    verdict: str,
+) -> str:
+    """Generate a crisp executive summary from all artifacts + verdict."""
+    all_artifacts = "\n\n---\n\n".join(
+        f"Phase {p.get('number', '?')} — {p.get('name', '?')}:\n{p.get('artifact', 'No artifact')}"
+        for p in phases if p.get("artifact")
+    )
+
+    prompt = _EXEC_SUMMARY_PROMPT.format(
+        phase_count=len(phases),
+        all_artifacts=all_artifacts,
+        verdict=verdict,
+    )
+
+    async def _call():
+        return await support_agent.on_messages(
+            [TextMessage(content=prompt, source="system")], CancellationToken()
+        )
+
+    response = await _call_with_retry(_call, label="exec_summary")
+    if response and response.chat_message:
+        return response.chat_message.content
+    return "Executive summary generation failed."
+
+
 async def run_stress_test(
     config: EngineConfig,
     phases: list[dict],
@@ -104,8 +174,8 @@ async def run_stress_test(
     review_instructions: str,
     emit: EventCallback,
     receive: ReceiveCallback,
-) -> tuple[list, dict, list[dict], str]:
-    """Run a stress test session with phase-aware loop. Returns (messages, stats, phases, verdict)."""
+) -> tuple[list, dict, list[dict], str, str]:
+    """Run a stress test session. Returns (messages, stats, phases, verdict, exec_summary)."""
 
     agents = _build_agents(config)
     agent_map = {a.name: a for a in agents}
@@ -370,6 +440,11 @@ async def run_stress_test(
     verdict = await overseer.generate_final_verdict()
     await emit("verdict_complete", {"content": verdict})
 
+    # Generate executive summary
+    await emit("phase_transition", {"phase": "executive_summary"})
+    exec_summary = await _generate_executive_summary(support_agent, phases, verdict)
+    await emit("executive_summary", {"content": exec_summary})
+
     stats = {
         "total_rounds": total_round_count,
         "gate_skips": total_gate_skips,
@@ -378,4 +453,4 @@ async def run_stress_test(
         "terminated_by": "verdict",
     }
 
-    return all_messages, stats, phases, verdict
+    return all_messages, stats, phases, verdict, exec_summary

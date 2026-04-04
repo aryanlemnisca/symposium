@@ -63,14 +63,14 @@ class SessionRunner:
                     await asyncio.sleep(999999)
                     return {"action": "auto_advance"}
 
-                all_messages, stats, final_phases, verdict_text = await run_stress_test(
+                all_messages, stats, final_phases, verdict_text, exec_summary = await run_stress_test(
                     config, phases, documents, review_instructions,
                     self.emit, _receive,
                 )
 
                 transcript = build_transcript(
                     all_messages,
-                    {**stats, "model": config.main_model, "max_rounds": config.max_rounds},
+                    {**stats, "model": config.main_model, "max_rounds": config.max_rounds, "mode": "stress_test"},
                     config.agent_names,
                 )
 
@@ -79,6 +79,7 @@ class SessionRunner:
                     if phase.get("artifact"):
                         outputs[f"phase_{phase['number']}_artifact.md"] = phase["artifact"]
                 outputs["verdict.md"] = verdict_text or "Verdict not generated."
+                outputs["executive_summary.md"] = exec_summary or "Executive summary not generated."
 
                 session.phases = final_phases
                 session.outputs = outputs
