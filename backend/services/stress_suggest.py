@@ -199,10 +199,15 @@ async def suggest_stress_test_agents(
         f"BIASES / BLIND SPOTS:\n- [2-3 honest limitations of this agent's worldview]\n\n"
         f"HOW YOU INTERACT WITH OTHERS:\n[2-3 sentences — specific behaviours, aggression level]\n\n"
         f"STYLE: [1-2 sentences — voice, tone]\n\n"
-        f"IMPORTANT: Agents must refer to each other by NAME, never by number.\n\n"
+        f"IMPORTANT:\n"
+        f"- Agents must refer to each other by NAME, never by number.\n"
+        f"- Agent names must be SIMPLE and descriptive: Role_Noun format.\n"
+        f"  GOOD: Strain_Reviewer, Process_Lead, Analytics_Reviewer, Strategy_Lead, Ops_Reviewer, Red_Team\n"
+        f"  BAD: Dr_Genevieve_Strain, Professor_Ben_Carter, Dr_Doubt_Fire, Ms_Vision_Scope\n"
+        f"  No titles (Dr, Prof, Mr, Ms), no clever wordplay, no character names.\n\n"
         f"Return JSON array:\n"
         f'[{{\n'
-        f'  "name": "Specific_Expertise_Name",\n'
+        f'  "name": "Simple_Role_Name (e.g. Strain_Reviewer, Process_Lead, Red_Team — short, clear, no fancy names like Dr_Doubt_Fire)",\n'
         f'  "role_tag": "2-3 word label",\n'
         f'  "mission": "one sentence",\n'
         f'  "lens": "what this agent specifically looks for in the documents",\n'

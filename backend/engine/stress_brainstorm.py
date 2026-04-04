@@ -75,18 +75,15 @@ def _build_stress_context(
     if review_instructions:
         context.append(TextMessage(content=review_instructions, source="system"))
 
-    # Current phase docs — full text
-    current_phase = phases[current_phase_index]
-    current_doc_ids = set(current_phase.get("document_ids", []))
-    current_docs = [d for d in documents if d.get("id") in current_doc_ids]
-    if current_docs:
-        doc_text = "\n\n".join(
-            f"[Document: {d['filename']}]\n{d['content_text']}"
-            for d in current_docs
-        )
-        context.append(TextMessage(content=f"DOCUMENTS FOR THIS PHASE\n{'='*40}\n\n{doc_text}", source="system"))
+    # All documents — full text always available
+    doc_text = "\n\n".join(
+        f"[Document: {d['filename']}]\n{d['content_text']}"
+        for d in documents
+    )
+    if doc_text:
+        context.append(TextMessage(content=f"UPLOADED DOCUMENTS\n{'='*40}\n\n{doc_text}", source="system"))
 
-    # Previous phase artifacts (compact)
+    # Previous phase artifacts (carry-forward decisions)
     for prev_phase in phases[:current_phase_index]:
         if prev_phase.get("artifact"):
             context.append(TextMessage(content=prev_phase["artifact"], source="Overseer"))
