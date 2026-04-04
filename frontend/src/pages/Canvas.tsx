@@ -175,16 +175,34 @@ export default function Canvas() {
     setAnalysing(true);
     try {
       const res = await api.post<{ phases: Phase[]; review_instructions: string }>(`/sessions/${id}/stress/analyse-documents`);
+      // Build a filename→id lookup to map AI-returned filenames to actual doc IDs
+      const filenameToId: Record<string, string> = {};
+      uploadedDocs.forEach((d) => {
+        filenameToId[d.filename] = d.id;
+        filenameToId[d.filename.replace(/\.[^.]+$/, '')] = d.id; // also match without extension
+      });
+
       const phasesWithIds = (res.phases || []).map((p: any, i: number) => {
         const schema = Array.isArray(p.artifact_schema) ? p.artifact_schema
           : typeof p.artifact_schema === 'string' ? p.artifact_schema.split('\n').filter(Boolean)
           : [];
 
+        // Map document references to actual IDs (AI may return filenames instead of UUIDs)
+        const rawDocIds = p.document_ids || [];
+        const resolvedDocIds = rawDocIds.map((ref: string) => {
+          if (filenameToId[ref]) return filenameToId[ref]; // exact filename match
+          // fuzzy match — check if any uploaded doc filename contains this ref or vice versa
+          const match = uploadedDocs.find((d) =>
+            d.filename.includes(ref) || ref.includes(d.filename) || d.id === ref
+          );
+          return match ? match.id : ref;
+        });
+
         return {
           ...p,
           number: i + 1,
           status: 'pending' as const,
-          document_ids: p.document_ids || uploadedDocs.map((d) => d.id),
+          document_ids: resolvedDocIds.length > 0 ? resolvedDocIds : uploadedDocs.map((d) => d.id),
           key_subquestions: p.key_subquestions || [],
           artifact_schema: schema,
           start_round: null,
