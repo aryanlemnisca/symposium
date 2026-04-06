@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    container_name: symposium-app
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - symposium-data:/app/data
+      - symposium-uploads:/app/uploads
+      - symposium-outputs:/app/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  caddy:
+    build:
+      context: .
+      target: caddy
+    container_name: symposium-caddy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      SITE_ADDRESS: "${SITE_ADDRESS:-localhost}"
+    depends_on:
+      - app
+
+volumes:
+  symposium-data:
+  symposium-uploads:
+  symposium-outputs:
+  caddy-data:
+  caddy-config:
