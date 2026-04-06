@@ -9,6 +9,7 @@ from autogen_core import CancellationToken
 
 from backend.engine.config import EngineConfig
 from backend.engine.clients import make_client
+from backend.engine.tools import get_tools_for_agent
 from backend.engine.gate import run_speech_gate
 from backend.engine.selector import hybrid_selector
 from backend.engine.summary import generate_rolling_summary, build_agent_context
@@ -19,13 +20,17 @@ ReceiveCallback = Callable[[], Awaitable[dict]]
 
 
 async def _call_with_retry(coro_fn, max_retries: int = 3, label: str = "call"):
-    delays = [2, 4, 8]
+    import logging
+    logger = logging.getLogger("symposium")
+    delays = [2, 4, 8, 16]
     for attempt in range(max_retries + 1):
         try:
             return await coro_fn()
-        except Exception:
+        except Exception as e:
+            logger.warning(f"[{label}] attempt {attempt+1}/{max_retries+1} failed: {e}")
             if attempt < max_retries:
                 await asyncio.sleep(delays[min(attempt, len(delays) - 1)])
+    logger.error(f"[{label}] all {max_retries+1} attempts failed")
     return None
 
 
@@ -43,19 +48,34 @@ async def wait_for_command(receive: ReceiveCallback, timeout: Optional[float] = 
         return "auto_advance"
 
 
+_WEB_SEARCH_HINT = (
+    "\n\nYou have access to a web_search tool. Use it to look up real-world data, "
+    "recent statistics, market figures, regulatory info, or any factual claims that "
+    "would strengthen your arguments. Cite what you find. Don't search for every turn — "
+    "only when concrete evidence would add value."
+)
+
+
 def _build_agents(config: EngineConfig):
     agents = []
     for agent_conf in config.agents:
+        tool_names = agent_conf.get("tools", [])
+        tools = get_tools_for_agent(tool_names)
+        persona = agent_conf["persona"]
+        if tools:
+            persona += _WEB_SEARCH_HINT
         client = make_client(
             model=agent_conf["model"],
             api_key=config.gemini_api_key,
             temperature=config.temperature,
+            function_calling=len(tools) > 0,
         )
         agents.append(AssistantAgent(
             name=agent_conf["name"],
             description=agent_conf.get("role_tag", agent_conf["name"]),
-            system_message=agent_conf["persona"],
+            system_message=persona,
             model_client=client,
+            tools=tools if tools else None,
         ))
     return agents
 
@@ -158,7 +178,7 @@ async def _generate_executive_summary(
             [TextMessage(content=prompt, source="system")], CancellationToken()
         )
 
-    response = await _call_with_retry(_call, label="exec_summary")
+    response = await _call_with_retry(_call, max_retries=5, label="exec_summary")
     if response and response.chat_message:
         return response.chat_message.content
     return "Executive summary generation failed."

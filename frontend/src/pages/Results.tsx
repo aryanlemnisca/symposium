@@ -7,8 +7,10 @@ import SaveTemplateModal from '../components/shared/SaveTemplateModal';
 export default function Results() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentSession, fetchSession } = useSessionStore();
+  const { currentSession, fetchSession, updateSession } = useSessionStore();
   const [activeTab, setActiveTab] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState('');
   const [showTemplateModal, setShowTemplateModal] = useState(() => {
     return !localStorage.getItem(`template_dismissed_${id}`);
   });
@@ -78,7 +80,37 @@ export default function Results() {
       <div className="flex items-center justify-between px-8 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div>
           <button onClick={() => navigate('/sessions')} className="text-xs mb-1" style={{ color: 'var(--color-text-dim)' }}>&larr; Sessions</button>
-          <h1 className="text-lg font-bold" style={{ color: 'var(--color-teal)' }}>{currentSession.name}</h1>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onBlur={async () => {
+                if (id && nameValue.trim() && nameValue !== currentSession.name) {
+                  await updateSession(id, { name: nameValue.trim() });
+                }
+                setEditingName(false);
+              }}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  if (id && nameValue.trim() && nameValue !== currentSession.name) {
+                    await updateSession(id, { name: nameValue.trim() });
+                  }
+                  setEditingName(false);
+                }
+                if (e.key === 'Escape') setEditingName(false);
+              }}
+              className="text-lg font-bold bg-transparent outline-none w-full"
+              style={{ color: 'var(--color-teal)', borderBottom: '1px solid var(--color-teal)' }}
+            />
+          ) : (
+            <h1
+              className="text-lg font-bold cursor-pointer hover:opacity-80"
+              style={{ color: 'var(--color-teal)' }}
+              onClick={() => { setNameValue(currentSession.name); setEditingName(true); }}
+              title="Click to rename"
+            >{currentSession.name}</h1>
+          )}
           <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>{currentSession.mode === 'product' ? 'Product Discussion' : 'Problem Discussion'} · Completed {currentSession.completed_at ? new Date(currentSession.completed_at).toLocaleString() : ''}</p>
         </div>
         <div className="flex gap-2">
