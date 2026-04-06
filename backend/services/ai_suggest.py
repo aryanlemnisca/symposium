@@ -330,10 +330,13 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
     raw = await _ask(system, prompt, api_key)
     result = _parse_json(raw)
     if result and isinstance(result, list):
-        # Auto-enable web_search for researcher agents
+        # Auto-enable web_search for agents that benefit from real-world data
+        web_search_roles = ["research", "analyst", "market", "domain", "expert", "strategist"]
         for agent in result:
             role = (agent.get("role_tag", "") or "").lower()
-            if "research" in role:
+            name = (agent.get("name", "") or "").lower()
+            persona = (agent.get("persona", "") or "").lower()
+            if any(kw in role or kw in name for kw in web_search_roles) or "data" in persona[:100]:
                 agent["tools"] = ["web_search"]
         return result
     return []
