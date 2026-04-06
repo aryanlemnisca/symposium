@@ -4,6 +4,7 @@ __pycache__/
 *.db
 uploads/
 outputs/
+last_run_outputs/
 node_modules/
 dist/
 .vite/
