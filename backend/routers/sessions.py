@@ -10,6 +10,7 @@ from backend.models.schemas import (
     SessionCreate, SessionUpdate, SessionResponse, AgentConfig, SessionSettings,
 )
 from backend.services.session_runner import SessionRunner
+from backend.services.session_manager import session_manager
 from backend.services.export import create_zip
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
@@ -108,6 +109,16 @@ def start_session_run(session_id: str, db: DBSession = Depends(get_db), _=Depend
     return {"ws_url": f"/api/sessions/{session_id}/ws"}
 
 
+@router.post("/{session_id}/stop")
+def stop_session_run(session_id: str, _=Depends(require_auth)):
+    """Stop a running session."""
+    running = session_manager.get(session_id)
+    if not running or running.finished:
+        raise HTTPException(status_code=400, detail="Session is not running")
+    running.task.cancel()
+    return {"status": "stopping"}
+
+
 @router.websocket("/{session_id}/ws")
 async def session_websocket(websocket: WebSocket, session_id: str):
     await websocket.accept()
@@ -134,27 +145,33 @@ async def session_websocket(websocket: WebSocket, session_id: str):
             await websocket.close()
             return
 
-        command_queue = asyncio.Queue()
+        # Check if session is already running (reconnection case)
+        running = session_manager.get(session_id)
 
-        async def receive_loop():
+        if running is None or running.finished:
+            # Start new background task
+            running = session_manager.start(session_id, _start_session(session_id, api_key))
+
+        # Subscribe to events and forward to WebSocket
+        queue = running.subscribe()
+        try:
             while True:
                 try:
-                    msg = await websocket.receive_json()
-                    await command_queue.put(msg)
-                except WebSocketDisconnect:
-                    await command_queue.put({"action": "disconnected"})
-                    break
-                except Exception:
-                    await command_queue.put({"action": "disconnected"})
-                    break
+                    event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    await websocket.send_json(event)
 
-        receive_task = asyncio.create_task(receive_loop())
-
-        try:
-            runner = SessionRunner(websocket, session, db, api_key)
-            await runner.run(receive=command_queue.get)
+                    # If session is done, break after sending final event
+                    if event.get("type") in ("session_complete", "session_stopped", "error"):
+                        break
+                except asyncio.TimeoutError:
+                    # Check if session finished while we were waiting
+                    if running.finished and queue.empty():
+                        break
+                    continue
+        except WebSocketDisconnect:
+            pass  # Client disconnected — session keeps running
         finally:
-            receive_task.cancel()
+            running.unsubscribe(queue)
 
     except WebSocketDisconnect:
         pass
@@ -163,6 +180,25 @@ async def session_websocket(websocket: WebSocket, session_id: str):
             await websocket.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
+    finally:
+        db.close()
+
+
+async def _start_session(session_id: str, api_key: str):
+    """Coroutine that runs a session in the background."""
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if not session:
+            return
+
+        running = session_manager.get(session_id)
+        if not running:
+            return
+
+        runner = SessionRunner(running, session, db, api_key)
+        await runner.run()
     finally:
         db.close()
 

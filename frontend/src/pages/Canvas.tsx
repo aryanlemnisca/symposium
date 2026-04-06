@@ -91,6 +91,10 @@ export default function Canvas() {
         useCanvasStore.getState().setActiveAgent(null);
         setTimeout(() => navigate(`/results/${id}`), 2000);
       }
+      if (msg.type === 'session_stopped') {
+        useCanvasStore.getState().setActiveAgent(null);
+        setIsLive(false);
+      }
     },
   });
 
@@ -393,7 +397,21 @@ export default function Canvas() {
   if (isLive) {
     return (
       <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--color-navy)' }}>
-        <StatsBar messages={wsMessages} maxRounds={settings.max_rounds} />
+        <div className="flex items-center justify-between px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <StatsBar messages={wsMessages} maxRounds={settings.max_rounds} />
+          <button
+            onClick={async () => {
+              if (!id) return;
+              try {
+                await api.post(`/sessions/${id}/stop`);
+              } catch {}
+            }}
+            className="px-4 py-1.5 rounded-lg text-xs font-medium shrink-0"
+            style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #991b1b' }}
+          >
+            Stop Run
+          </button>
+        </div>
         <div className="flex-1 flex min-h-0">
           <div className="w-2/5 h-full" style={{ borderRight: '1px solid var(--color-border)' }}>
             {mode === 'stress_test' && uploadedDocs.length > 0 ? (

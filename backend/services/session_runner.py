@@ -1,10 +1,8 @@
-"""Session runner — routes to mode-specific engines, emits WebSocket events."""
+"""Session runner — routes to mode-specific engines, emits events to session manager buffer."""
 
 import asyncio
-import json
 from datetime import datetime, timezone
 
-from fastapi import WebSocket
 from sqlalchemy.orm import Session as DBSession
 
 from backend.models.session import Session, SessionStatus
@@ -13,19 +11,20 @@ from backend.engine.product_brainstorm import run_product_session
 from backend.engine.problem_brainstorm import run_problem_session
 from backend.engine.stress_brainstorm import run_stress_test
 from backend.engine.outputs import build_transcript
+from backend.services.session_manager import RunningSession
 
 
 class SessionRunner:
-    def __init__(self, websocket: WebSocket, session: Session, db: DBSession, api_key: str):
-        self.ws = websocket
+    def __init__(self, running: RunningSession, session: Session, db: DBSession, api_key: str):
+        self.running = running
         self.session = session
         self.db = db
         self.api_key = api_key
 
     async def emit(self, event_type: str, data: dict):
-        await self.ws.send_json({"type": event_type, **data})
+        self.running.emit({"type": event_type, **data})
 
-    async def run(self, receive=None):
+    async def run(self):
         session = self.session
         settings = session.settings or {}
 
@@ -57,8 +56,6 @@ class SessionRunner:
                 review_instructions = session.stress_review_instructions or ""
 
                 async def _receive():
-                    if receive:
-                        return await receive()
                     await asyncio.sleep(999999)
                     return {"action": "auto_advance"}
 
@@ -96,30 +93,41 @@ class SessionRunner:
                     config, phases, self.emit,
                 )
 
-                # Save phase artifacts back to session
                 session.phases = phases
                 session.outputs = outputs
-                session.transcript = outputs.get("transcript.md", "")
                 session.status = SessionStatus.complete
                 session.completed_at = datetime.now(timezone.utc)
                 self.db.commit()
+
+                await self.emit("session_complete", {
+                    "terminated_by": stats.get("terminated_by", "max_rounds"),
+                    "outputs": list(outputs.keys()),
+                })
 
             elif mode == "problem_discussion":
                 all_messages, stats, outputs = await run_problem_session(
                     config, phases, self.emit,
                 )
 
-                # Save phase artifacts back to session
                 session.phases = phases
                 session.outputs = outputs
-                session.transcript = outputs.get("transcript.md", "")
                 session.status = SessionStatus.complete
                 session.completed_at = datetime.now(timezone.utc)
                 self.db.commit()
 
+                await self.emit("session_complete", {
+                    "terminated_by": stats.get("terminated_by", "max_rounds"),
+                    "outputs": list(outputs.keys()),
+                })
+
             else:
                 raise ValueError(f"Unknown session mode: {mode}")
 
+        except asyncio.CancelledError:
+            # Session was stopped by user
+            session.status = SessionStatus.error
+            self.db.commit()
+            await self.emit("session_stopped", {"message": "Session stopped by user"})
         except Exception as e:
             session.status = SessionStatus.error
             self.db.commit()
