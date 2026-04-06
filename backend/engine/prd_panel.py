@@ -156,11 +156,11 @@ async def run_prd_mini_panel(
             stream = agent.on_messages_stream(messages, CancellationToken())
             async for chunk in stream:
                 if hasattr(chunk, 'content') and isinstance(chunk.content, str):
-                    content = chunk.content
+                    content += chunk.content
                     await emit("agent_message_chunk", {
                         "source": chosen,
                         "round": f"PRD {turn + 1}",
-                        "content": chunk.content,
+                        "content": content,
                     })
                 elif hasattr(chunk, 'chat_message') and chunk.chat_message:
                     content = chunk.chat_message.content or ""

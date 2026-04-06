@@ -193,11 +193,11 @@ async def run_brainstorm(
             stream = agent.on_messages_stream(context, CancellationToken())
             async for chunk in stream:
                 if hasattr(chunk, 'content') and isinstance(chunk.content, str):
-                    content = chunk.content
+                    content += chunk.content
                     await emit("agent_message_chunk", {
                         "source": chosen,
                         "round": turn_counter + 1,
-                        "content": chunk.content,
+                        "content": content,
                     })
                 elif hasattr(chunk, 'chat_message') and chunk.chat_message:
                     content = chunk.chat_message.content or ""
