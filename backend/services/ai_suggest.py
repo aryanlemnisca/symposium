@@ -84,10 +84,10 @@ def _parse_json(raw: str) -> dict | list | None:
 async def review_stress_test_problem(text: str, api_key: str) -> dict:
     """Review and enhance a stress test problem statement."""
     system = (
-        "You are an expert at designing document stress-test review sessions. "
-        "A good stress test problem statement must clearly define: what documents are being reviewed, "
-        "what decision the review supports, what a good review outcome looks like, "
-        "what is out of scope, and the specific questions the review must answer."
+        "You are an expert at designing adversarial document stress-test review sessions. "
+        "A strong stress test brief turns reviewers into investigators — it tells them exactly "
+        "what to look for, what standard to hold documents to, and what a 'pass' vs 'fail' looks like. "
+        "Vague briefs produce vague reviews."
     )
     prompt = (
         f'Review and enhance this stress test problem statement:\n\n'
@@ -96,16 +96,19 @@ async def review_stress_test_problem(text: str, api_key: str) -> dict:
         f'{{\n'
         f'  "clarity": "Low|Medium|High",\n'
         f'  "clarity_reason": "one sentence",\n'
-        f'  "missing": ["list of missing elements — e.g. review questions, scope boundaries, success criteria"],\n'
+        f'  "missing": ["list of missing elements"],\n'
         f'  "suggestions": ["2-3 specific improvements"],\n'
         f'  "rewrite": "Enhanced version that:\\n'
         f'    - Preserves the user\'s original intent\\n'
-        f'    - Clearly states WHAT is being reviewed (the documents/work product)\\n'
-        f'    - States WHAT DECISION this review supports\\n'
-        f'    - Lists the SPECIFIC QUESTIONS the review must answer\\n'
-        f'    - Defines WHAT A GOOD OUTCOME looks like\\n'
-        f'    - States WHAT IS OUT OF SCOPE\\n'
-        f'    - Uses structured formatting"\n'
+        f'    - Opens with REVIEW CONTEXT (what documents are being reviewed, who produced them, what stage they are at)\\n'
+        f'    - States DECISION AT STAKE (what real decision depends on this review — e.g. go/no-go, funding, launch)\\n'
+        f'    - Defines REVIEW STANDARD (what bar must the documents clear? internal consistency? market realism? technical feasibility? all of these?)\\n'
+        f'    - Lists CRITICAL QUESTIONS (5-8 specific questions the review must answer — e.g. \'Are the revenue projections consistent with the stated market size?\')\\n'
+        f'    - Adds KNOWN RISKS TO PROBE (areas where the reviewer suspects weakness — e.g. \'The market sizing feels optimistic\', \'Implementation timeline may be too aggressive\')\\n'
+        f'    - Defines PASS/FAIL CRITERIA (what would make you confident to proceed? what would be a dealbreaker?)\\n'
+        f'    - States OUT OF SCOPE (what aspects should NOT be reviewed — e.g. \'Don\'t review the technical architecture, focus on GTM strategy\')\\n'
+        f'    - Ends with REVIEWER MANDATE (the tone and approach — e.g. \'Assume nothing is correct until proven. Challenge every claim. Be adversarial.\')\\n'
+        f'    - Uses structured formatting with section headers"\n'
         f'}}'
     )
     raw = await _ask(system, prompt, api_key)
