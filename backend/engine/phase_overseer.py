@@ -351,12 +351,16 @@ class PhaseOverseer:
         if response and response.chat_message:
             parsed = _parse_json_safe(response.chat_message.content)
             if parsed:
-                # Enforce minimum rounds only on critical phases
+                # Enforce minimum rounds:
+                # - All phases: at least half the min_rounds_per_phase
+                # - Critical phases: full min_rounds_per_phase
                 is_critical = phase.get("critical", False)
-                if is_critical and phase_round_count < self.min_rounds_per_phase:
+                base_min = max(self.min_rounds_per_phase // 2, 10)
+                effective_min = self.min_rounds_per_phase if is_critical else base_min
+                if phase_round_count < effective_min:
                     parsed["action"] = "continue"
                     parsed["continue_reason"] = (
-                        f"Minimum rounds ({self.min_rounds_per_phase}) "
+                        f"Minimum rounds ({effective_min}) "
                         f"not reached ({phase_round_count})"
                     )
                 return parsed
