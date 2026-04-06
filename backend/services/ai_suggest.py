@@ -255,33 +255,46 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
     system = (
         "You are an expert in designing multi-agent brainstorming panels. "
         "You create panels where agents have genuine productive tension — "
-        "complementary expertise but different priorities that force rigorous debate. "
-        "Every panel should have at least one domain expert, one challenger/outsider, "
-        "one user advocate, and one who translates ideas into concrete form."
+        "complementary expertise but different priorities that force rigorous debate."
     )
     prompt = (
-        f'Design a 4-agent brainstorming panel for this problem:\n\n'
+        f'Design a 5-6 agent brainstorming panel for this problem:\n\n'
         f'Problem statement:\n{problem_statement}\n\n'
         f'Mode: {mode}\n\n'
+        f'The panel MUST include these roles:\n'
+        f'1. A Subject/Domain Expert — deep expertise in the specific domain of the problem\n'
+        f'2. A Researcher — finds data, benchmarks, prior art, market context (will have web search access)\n'
+        f'3. A User/Customer Advocate — defends end-user needs and practical usability\n'
+        f'4. A Challenger — pokes holes, questions assumptions, plays devil\'s advocate\n'
+        f'5. A Product/Strategy lead — translates ideas into concrete actionable form\n'
+        f'6. (Optional) A specialist relevant to this specific problem\n\n'
         f'Each agent needs a FULL structured persona following this format:\n\n'
         f'{_PERSONA_STRUCTURE}\n\n'
-        f'Return a JSON array of 4 agents:\n'
+        f'Return a JSON array of 5-6 agents:\n'
         f'[{{\n'
-        f'  "name": "Descriptive_Name (underscores, no spaces)",\n'
+        f'  "name": "Simple_First_Name (e.g. Arjun, Maya, Raj — use underscores, no spaces, keep it short)",\n'
         f'  "mission": "one sentence — what this agent exists to do",\n'
         f'  "persona": "FULL persona text following the structure above (200-400 words)",\n'
         f'  "model": "gemini-3.1-pro-preview",\n'
         f'  "role_tag": "short 1-2 word role label",\n'
         f'  "rationale": "one sentence — why this agent creates productive tension"\n'
         f'}}]\n\n'
-        f'The 4 agents MUST create tension: they should disagree on priorities, '
+        f'NAMING RULES:\n'
+        f'- Use simple first names only (e.g. Arjun, Maya, Priya, Raj) — NOT descriptive names like "Market_Analyst"\n'
+        f'- The role_tag describes their role, not the name\n\n'
+        f'The agents MUST create tension: they should disagree on priorities, '
         f'question each other\'s assumptions, and force the discussion to be rigorous. '
         f'Do NOT create agents that will just agree with each other.\n\n'
-        f'IMPORTANT: Each persona MUST start with "You are [Agent_Name] — the [TITLE]." '
+        f'IMPORTANT: Each persona MUST start with "You are [Name] — the [TITLE]." '
         f'NEVER use "participant N". Agents must refer to each other by NAME, not number.'
     )
     raw = await _ask(system, prompt, api_key)
     result = _parse_json(raw)
     if result and isinstance(result, list):
+        # Auto-enable web_search for researcher agents
+        for agent in result:
+            role = (agent.get("role_tag", "") or "").lower()
+            if "research" in role:
+                agent["tools"] = ["web_search"]
         return result
     return []
