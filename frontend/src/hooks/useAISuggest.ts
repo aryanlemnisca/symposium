@@ -4,7 +4,7 @@ import { api } from '../api/client';
 export function useInlineSuggestion(text: string, debounceMs: number = 800) {
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setSuggestion(null);
