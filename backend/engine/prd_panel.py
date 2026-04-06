@@ -99,6 +99,7 @@ async def run_prd_mini_panel(
                 description=agent_conf.get("role_tag", agent_conf["name"]),
                 system_message=agent_conf["persona"],
                 model_client=client,
+                model_client_stream=True,
             )
 
     # Always ensure a Product Thinker is on the PRD panel
@@ -119,6 +120,7 @@ async def run_prd_mini_panel(
             description="Product form and scope owner",
             system_message=_PRODUCT_THINKER_PERSONA,
             model_client=client,
+            model_client_stream=True,
         )
 
     if not prd_agents:

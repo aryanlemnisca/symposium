@@ -86,6 +86,7 @@ def _build_agents(config: EngineConfig) -> list[AssistantAgent]:
             description=agent_conf.get("role_tag", agent_conf["name"]),
             system_message=persona,
             model_client=client,
+            model_client_stream=True,
             tools=tools if tools else None,
         ))
     return agents
