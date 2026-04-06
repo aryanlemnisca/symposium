@@ -431,7 +431,7 @@ export default function Canvas() {
             )}
           </div>
           <div className="w-3/5 h-full flex flex-col min-h-0">
-            <LiveFeed messages={wsMessages} />
+            <LiveFeed messages={wsMessages} agents={currentSession?.agents || []} />
             <div className="shrink-0 overflow-y-auto" style={{ height: '30%', borderTop: '1px solid var(--color-border)' }}>
               <ArtifactPanel messages={wsMessages} />
             </div>

@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WSMessage } from '../../hooks/useWebSocket';
 
+interface AgentInfo {
+  name: string;
+  tools?: string[];
+}
+
 interface Props {
   messages: WSMessage[];
+  agents?: AgentInfo[];
 }
 
 function CollapsibleMessage({ content }: { content: string }) {
@@ -39,7 +45,10 @@ function CollapsibleMessage({ content }: { content: string }) {
   );
 }
 
-export default function LiveFeed({ messages }: Props) {
+export default function LiveFeed({ messages, agents = [] }: Props) {
+  const webSearchAgents = new Set(
+    agents.filter((a) => a.tools?.includes('web_search')).map((a) => a.name)
+  );
   const feedRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
 
@@ -65,6 +74,9 @@ export default function LiveFeed({ messages }: Props) {
             <div key={i} className="p-4 rounded-lg" style={{ background: 'var(--color-navy-light)', border: `1px solid ${isStreaming ? 'var(--color-teal-dim)' : 'var(--color-border)'}` }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-bold" style={{ color: 'var(--color-teal)' }}>{msg.source as string}</span>
+                {webSearchAgents.has(msg.source as string) && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal)', color: 'var(--color-teal)' }}>W</span>
+                )}
                 <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--color-navy)', color: 'var(--color-text-dim)' }}>Round {msg.round as number}</span>
                 {isStreaming && <span className="text-[10px] animate-pulse" style={{ color: 'var(--color-teal-dim)' }}>typing...</span>}
               </div>
