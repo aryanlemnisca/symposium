@@ -128,7 +128,7 @@ export default function AgentDrawer() {
             <button onClick={() => setReviewResult(null)} className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>close</button>
           </div>
           {reviewResult.distinctiveness_reason && (
-            <p style={{ color: 'var(--color-text-dim)' }}>{reviewResult.distinctiveness_reason as string}</p>
+            <p style={{ color: 'var(--color-text-dim)' }}>{String(reviewResult.distinctiveness_reason)}</p>
           )}
           {(reviewResult.missing_sections as string[])?.length > 0 && (
             <div>

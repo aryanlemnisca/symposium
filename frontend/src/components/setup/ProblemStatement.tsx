@@ -16,7 +16,7 @@ export default function ProblemStatement({ value, onChange, mode }: Props) {
     const reviewType = mode === 'stress_test' ? 'stress_test_problem' : 'problem_statement';
     const res = await review(value, reviewType);
     if (res?.rewrite && res.rewrite !== value) {
-      setEnhanced(res.rewrite);
+      setEnhanced(res.rewrite as string);
     }
   };
 

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Phase } from '../../store/sessionStore';
 
 interface Props {

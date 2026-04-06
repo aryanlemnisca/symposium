@@ -78,7 +78,7 @@ interface SessionState {
   setCurrentSession: (session: SessionData | null) => void;
 }
 
-export const useSessionStore = create<SessionState>((set, get) => ({
+export const useSessionStore = create<SessionState>((set, _get) => ({
   sessions: [],
   currentSession: null,
   loading: false,

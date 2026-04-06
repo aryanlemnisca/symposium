@@ -19,7 +19,6 @@ import LiveFeed from '../components/session/LiveFeed';
 import ArtifactPanel from '../components/session/ArtifactPanel';
 import StatsBar from '../components/session/StatsBar';
 import DocumentSidebar from '../components/session/DocumentSidebar';
-import PhasePauseCard from '../components/session/PhasePauseCard';
 import type { UploadedDocument, Phase } from '../store/sessionStore';
 
 const nodeTypes = { agentNode: AgentNode };
@@ -73,7 +72,7 @@ export default function Canvas() {
   const [prdProductAgent, setPrdProductAgent] = useState<string>('');
   const [loadingPrdSuggest, setLoadingPrdSuggest] = useState(false);
 
-  const { connect, connected: _connected, messages: wsMessages, sendCommand } = useWebSocket({
+  const { connect, connected: _connected, messages: wsMessages } = useWebSocket({
     sessionId: id || '',
     onMessage: (msg) => {
       if (msg.type === 'agent_message' && msg.streaming) {
