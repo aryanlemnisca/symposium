@@ -24,12 +24,9 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
-      - "8443:443"
     volumes:
       - caddy-data:/data
       - caddy-config:/config
-    environment:
-      SITE_ADDRESS: "${SITE_ADDRESS:-localhost}"
     depends_on:
       - app
 
