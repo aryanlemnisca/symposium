@@ -29,6 +29,8 @@ async def review(req: ReviewRequest):
     api_key = _get_api_key()
     if req.review_type == "problem_statement":
         result = await ai_suggest.review_problem_statement(req.text, api_key)
+    elif req.review_type == "problem_discussion":
+        result = await ai_suggest.review_problem_discussion(req.text, api_key)
     elif req.review_type == "stress_test_problem":
         result = await ai_suggest.review_stress_test_problem(req.text, api_key)
     elif req.review_type == "persona":

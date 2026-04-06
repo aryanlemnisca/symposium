@@ -41,7 +41,7 @@ export function useReview() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
 
-  const review = async (text: string, type: 'problem_statement' | 'persona' | 'stress_test_problem' = 'problem_statement', otherAgents: unknown[] = []): Promise<Record<string, unknown> | null> => {
+  const review = async (text: string, type: 'problem_statement' | 'persona' | 'stress_test_problem' | 'problem_discussion' = 'problem_statement', otherAgents: unknown[] = []): Promise<Record<string, unknown> | null> => {
     setLoading(true);
     setResult(null);
     try {

@@ -80,7 +80,9 @@ def _stress_context_builder(
 _FINAL_VERDICT_PROMPT = """\
 You are producing the final readiness verdict for a stress-test review session.
 
-The following phase artifacts were produced during the session:
+The review board has examined the submitted documents across {phase_count} phases. Each phase produced a structured artifact with confirmed findings, contested claims, blocking issues, and cross-document contradictions. Your job is to synthesize everything into a definitive verdict.
+
+PHASE ARTIFACTS:
 {all_phase_artifacts}
 
 Produce the final verdict in this exact format:
@@ -88,31 +90,40 @@ Produce the final verdict in this exact format:
 STRESS TEST — FINAL READINESS VERDICT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OVERALL VERDICT
-READY / NOT READY / CONDITIONALLY READY
+OVERALL VERDICT: READY / NOT READY / CONDITIONALLY READY
 
-[One paragraph explaining the verdict]
+[One paragraph explaining the verdict — what was the decisive factor? If conditionally ready, state the exact conditions.]
 
-BLOCKING ISSUES
-[Must be resolved before the next step — specific, actionable]
-· [issue]: [what must change]
+BLOCKING ISSUES (must resolve before proceeding)
+· [issue]: [which document(s)] — [what specifically must change] — [why it blocks]
 
-NON-BLOCKING ISSUES
-[Should be addressed but do not block progress]
-· [issue]: [recommendation]
+NON-BLOCKING ISSUES (address but don't hold up progress)
+· [issue]: [which document(s)] — [recommendation] — [risk if ignored]
 
 CONFIRMED SOUND — DO NOT REVISIT
-[Items that survived stress-testing across all phases]
-· [item]
+[Items that survived adversarial stress-testing. These are locked decisions.]
+· [item] — [which phase confirmed it] — [what evidence supported it]
 
 CROSS-PHASE CONTRADICTIONS
-[Places where findings in one phase conflict with another]
-· [contradiction]: [which phases · what the conflict is]
+[Where findings from one phase directly conflict with another]
+· [contradiction]: [Phase N says X, Phase M says Y] — [which is correct and why]
+
+CUMULATIVE RISK ASSESSMENT
+· [risk 1]: [probability: high/medium/low] — [impact if realized] — [mitigation]
+· [risk 2]: ...
+
+DOCUMENT-BY-DOCUMENT SCORECARD
+[For each reviewed document, one line:]
+· [Document name]: [Ready/Not Ready/Needs Revision] — [one-sentence justification]
 
 RECOMMENDED FIRST ACTION
-[The single most important thing to do before proceeding]
+[The single most important thing to do before anything else — be specific about who should do it and by when]
 
-Be direct. Do not hedge. This verdict will be used to make a real decision.\
+Rules:
+- Be direct. Do not hedge. This verdict will be used to make a real decision.
+- Every blocking issue must reference specific documents and specific content.
+- If a document passed stress-testing cleanly, say so explicitly.
+- If the panel agreed too easily on something critical, flag it as potential groupthink.\
 """
 
 
@@ -122,9 +133,13 @@ async def _generate_final_verdict(
 ) -> str:
     """Generate final readiness verdict from all phase artifacts."""
     all_artifacts = "\n\n---\n\n".join(
-        p.get("artifact", "No artifact") for p in phases if p.get("artifact")
+        f"Phase {p.get('number', '?')} — {p.get('name', '?')}:\n{p.get('artifact', 'No artifact')}"
+        for p in phases if p.get("artifact")
     )
-    prompt = _FINAL_VERDICT_PROMPT.format(all_phase_artifacts=all_artifacts)
+    prompt = _FINAL_VERDICT_PROMPT.format(
+        phase_count=len(phases),
+        all_phase_artifacts=all_artifacts,
+    )
 
     async def _call():
         return await support_agent.on_messages(

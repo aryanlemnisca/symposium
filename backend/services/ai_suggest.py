@@ -161,6 +161,42 @@ async def review_problem_statement(text: str, api_key: str) -> dict:
     return {"clarity": "Unknown", "clarity_reason": raw, "missing": [], "suggestions": [], "rewrite": ""}
 
 
+async def review_problem_discussion(text: str, api_key: str) -> dict:
+    system = (
+        "You are an expert at framing complex problems for structured multi-agent discussion. "
+        "A good problem framing for discussion is different from a product brief — it should "
+        "define the problem space without prescribing solutions, surface the tensions and "
+        "tradeoffs, identify what 'progress' looks like, and invite multiple perspectives."
+    )
+    prompt = (
+        f'Review and enhance this problem statement for a Problem Discussion session:\n\n'
+        f'"{text}"\n\n'
+        f'Return JSON:\n'
+        f'{{\n'
+        f'  "clarity": "Low|Medium|High",\n'
+        f'  "clarity_reason": "one sentence",\n'
+        f'  "missing": ["list of missing elements"],\n'
+        f'  "suggestions": ["2-3 specific improvement suggestions"],\n'
+        f'  "rewrite": "A complete enhanced problem statement that:\\n'
+        f'    - Preserves the user\'s original intent\\n'
+        f'    - Opens with PROBLEM CONTEXT (what is happening, why it matters, who is affected)\\n'
+        f'    - Adds DIMENSIONS TO EXPLORE (2-4 lenses through which to examine the problem — e.g. technical, organizational, economic, ethical)\\n'
+        f'    - Defines WHAT SOLVED LOOKS LIKE (observable outcomes, not solutions — how would we know progress was made?)\\n'
+        f'    - Adds KNOWN CONSTRAINTS (budget, time, political, technical — what limits the solution space?)\\n'
+        f'    - Adds TENSIONS & TRADEOFFS (what competing priorities exist? where are the hard choices?)\\n'
+        f'    - Lists PERSPECTIVES NEEDED (whose viewpoint must be represented for a robust discussion?)\\n'
+        f'    - Ends with CORE QUESTION (the single question the panel must answer)\\n'
+        f'    - Does NOT propose solutions — only frames the problem clearly\\n'
+        f'    - Uses structured formatting with section headers"\n'
+        f'}}'
+    )
+    raw = await _ask(system, prompt, api_key)
+    result = _parse_json(raw)
+    if result and isinstance(result, dict):
+        return result
+    return {"clarity": "Unknown", "clarity_reason": raw, "missing": [], "suggestions": [], "rewrite": ""}
+
+
 async def review_persona(agent_name: str, persona_text: str, other_agents: list, api_key: str) -> dict:
     system = (
         "You are an expert in designing AI agent personas for structured multi-agent debate. "

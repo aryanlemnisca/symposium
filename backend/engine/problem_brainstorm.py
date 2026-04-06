@@ -50,7 +50,9 @@ def _problem_context_builder(
 # ---------------------------------------------------------------------------
 
 _CONCLUSION_PROMPT = """\
-You are producing a structured Conclusion Report for a Problem Discussion session.
+You are producing a structured Conclusion Report for a rigorous Problem Discussion session.
+
+The panel has debated this problem across {phase_count} phases. Each phase produced a structured artifact with confirmed findings, contested points, and open questions. Your job is to synthesize everything into a decision-ready document.
 
 PHASE ARTIFACTS:
 {artifact_text}
@@ -60,25 +62,37 @@ Output using this exact template:
 # Conclusion Report
 
 ## 1. Problem Restated
-[One paragraph restating the problem as understood after discussion]
+[One paragraph restating the problem as the panel now understands it — not how it was originally framed, but how it evolved through discussion. Include any reframing that happened.]
 
-## 2. Key Agreements
-[What the panel definitively concluded — bullet points]
+## 2. Root Causes Identified
+[What the panel identified as the fundamental drivers of this problem — bullet points with evidence from discussion. Tag each: [confirmed] if panel agreed, [contested] if debated]
 
-## 3. Key Tensions
-[Where disagreement remained and why it matters — bullet points]
+## 3. Key Agreements
+[What the panel definitively concluded — bullet points. Each must name WHO agreed and WHAT evidence supported it. Only include genuinely locked decisions.]
 
-## 4. Recommended Direction
-[The panel's strongest supported conclusion — 1-2 paragraphs]
+## 4. Key Tensions Unresolved
+[Where disagreement remained and why it matters — bullet points. For each: state both positions, who held them, and why resolution matters for next steps.]
 
-## 5. Dissenting Views
-[Minority positions worth preserving — bullet points with who held them]
+## 5. Frameworks & Mental Models Applied
+[What analytical frameworks, analogies, or mental models the panel used to reason about this problem — bullet points. Note which ones were productive vs. misleading.]
 
-## 6. Open Questions
-[Specific questions that would change direction if answered — bullet points]
+## 6. Recommended Direction
+[The panel's strongest supported path forward — 2-3 paragraphs. This must flow logically from the root causes and agreements above. Include specific conditions under which this recommendation changes.]
 
-## 7. Next Steps
-[Concrete actions — bullet points]\
+## 7. Dissenting Views Worth Preserving
+[Minority positions that could prove correct under different assumptions — bullet points with who held them and under what conditions they'd be right.]
+
+## 8. Critical Unknowns
+[Specific questions where the answer would materially change the recommendation — bullet points. For each: what you'd need to learn, how you'd learn it, and what changes if the answer goes the other way.]
+
+## 9. Immediate Next Steps
+[Concrete, assignable actions — numbered list. Each must have: what to do, why it's urgent, and what it unblocks.]
+
+Rules:
+- Be specific. "Do more research" is not a next step. "Interview 5 operations managers about X to validate Y" is.
+- Name the agents who held each position — readers need to understand the diversity of perspectives.
+- If the panel converged too quickly on a topic, flag it — premature consensus is a risk.
+- Do not soften disagreements. Preserved tension is more useful than false harmony.\
 """
 
 
@@ -112,7 +126,10 @@ async def _generate_conclusion(
         model_client=client,
     )
 
-    prompt = _CONCLUSION_PROMPT.format(artifact_text=artifact_text)
+    prompt = _CONCLUSION_PROMPT.format(
+        phase_count=len(phases),
+        artifact_text=artifact_text,
+    )
 
     async def _call():
         return await writer.on_messages(
@@ -149,24 +166,32 @@ Produce the summary in this EXACT format:
 EXECUTIVE SUMMARY
 ━━━━━━━━━━━━━━━━━
 
-CORE FINDING: [one line — the single most important takeaway]
+CORE FINDING:
+[2-3 sentences — the single most important takeaway from the entire discussion. What did the panel discover that wasn't obvious before?]
 
-KEY AGREEMENTS:
-· [3-5 bullet points — what the panel definitively concluded, each one sentence]
+ROOT CAUSE:
+[1-2 sentences — what the panel identified as the fundamental driver of this problem]
 
-KEY TENSIONS:
-· [2-3 bullet points — where disagreement remained and why it matters]
+WHAT'S SETTLED:
+· [3-5 bullet points — decisions the panel locked with evidence, each one sentence]
 
-RISKS:
-· [2-3 bullet points — risks that could derail progress if ignored]
+WHAT'S STILL CONTESTED:
+· [2-3 bullet points — where smart people disagreed and why both sides have merit]
+
+BLIND SPOTS FLAGGED:
+· [1-2 bullet points — areas the panel identified as under-examined or where premature consensus occurred]
+
+RECOMMENDED PATH:
+[2-3 sentences — the strongest supported direction, with the key condition that would change it]
 
 RECOMMENDED NEXT STEP:
-[One sentence — the single most important thing to do now]
+[One sentence — the single most important thing to do before anything else]
 
 Rules:
 - No hedging. Be direct.
 - Each bullet must be specific and actionable — no vague summaries.
-- Keep the entire summary under 300 words.\
+- If the panel agreed too easily on something important, flag it.
+- Keep the entire summary under 350 words.\
 """
 
 

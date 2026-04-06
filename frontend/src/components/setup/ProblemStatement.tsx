@@ -13,7 +13,7 @@ export default function ProblemStatement({ value, onChange, mode }: Props) {
   const [enhanced, setEnhanced] = useState<string | null>(null);
 
   const handleReview = async () => {
-    const reviewType = mode === 'stress_test' ? 'stress_test_problem' : 'problem_statement';
+    const reviewType = mode === 'stress_test' ? 'stress_test_problem' : mode === 'problem_discussion' ? 'problem_discussion' : 'problem_statement';
     const res = await review(value, reviewType);
     if (res?.rewrite && res.rewrite !== value) {
       setEnhanced(res.rewrite as string);
