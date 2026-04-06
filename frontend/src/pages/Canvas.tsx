@@ -618,10 +618,13 @@ export default function Canvas() {
                     <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--color-navy-lighter)', border: '1px solid var(--color-border)' }}>
                       <span className="text-[10px] font-bold" style={{ color: 'var(--color-teal)' }}>{n.data.name?.charAt(0)}</span>
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex items-center gap-1">
                       <span className="font-medium" style={{ color: 'var(--color-text)' }}>{n.data.name?.replace(/_/g, ' ')}</span>
-                      {n.data.role_tag && <span className="ml-2 text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{n.data.role_tag}</span>}
-                      {!n.data.persona && <span className="ml-2 text-[10px]" style={{ color: '#f87171' }}>No persona</span>}
+                      {(n.data.tools || []).includes('web_search') && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'var(--color-navy-lighter)', border: '1px solid var(--color-teal)', color: 'var(--color-teal)' }}>W</span>
+                      )}
+                      {n.data.role_tag && <span className="ml-1 text-[10px]" style={{ color: 'var(--color-teal-dim)' }}>{n.data.role_tag}</span>}
+                      {!n.data.persona && <span className="ml-1 text-[10px]" style={{ color: '#f87171' }}>No persona</span>}
                     </div>
                   </div>
                 ))}
