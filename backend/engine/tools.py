@@ -31,20 +31,6 @@ async def web_search(query: str) -> str:
         text_parts = [p["text"] for p in parts if "text" in p]
         answer = "\n".join(text_parts) if text_parts else "No results."
 
-        # Extract search sources if available
-        grounding = candidates[0].get("groundingMetadata", {})
-        sources = grounding.get("groundingChunks", [])
-        if sources:
-            source_lines = []
-            for s in sources[:5]:
-                web = s.get("web", {})
-                title = web.get("title", "")
-                uri = web.get("uri", "")
-                if title or uri:
-                    source_lines.append(f"- {title}: {uri}")
-            if source_lines:
-                answer += "\n\nSources:\n" + "\n".join(source_lines)
-
         return answer
     except Exception as e:
         return f"Web search failed: {str(e)}"

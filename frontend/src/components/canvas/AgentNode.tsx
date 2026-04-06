@@ -35,6 +35,17 @@ function AgentNode({ data, id }: NodeProps<AgentNodeType>) {
           </span>
         </div>
 
+        {/* Web search indicator */}
+        {(data.tools || []).includes('web_search') && (
+          <div
+            className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+            style={{ background: 'var(--color-navy-lighter)', border: '1px solid var(--color-teal)', color: 'var(--color-teal)' }}
+            title="Web search enabled"
+          >
+            W
+          </div>
+        )}
+
         {/* Delete button — visible on hover */}
         <button
           onClick={(e) => { e.stopPropagation(); removeAgent(id); }}
