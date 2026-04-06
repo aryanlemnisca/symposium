@@ -236,6 +236,59 @@ export default function Canvas() {
     }
   };
 
+  const handleAnalyseProblem = async () => {
+    if (!problemStatement || problemStatement.length < 20) return;
+    setAnalysing(true);
+    try {
+      const res = await api.post<{ phases: Phase[] }>('/suggest/phases', {
+        problem_statement: problemStatement,
+        mode,
+      });
+      const phasesWithDefaults = (res.phases || []).map((p: any, i: number) => {
+        const schema = Array.isArray(p.artifact_schema) ? p.artifact_schema
+          : typeof p.artifact_schema === 'string' ? p.artifact_schema.split('\n').filter(Boolean)
+          : [];
+        return {
+          ...p,
+          number: i + 1,
+          status: 'pending' as const,
+          document_ids: [],
+          key_subquestions: p.key_subquestions || [],
+          artifact_schema: schema,
+          start_round: null,
+          end_round: null,
+          artifact: null,
+          confirmed: [],
+          contested: [],
+          open_questions: [],
+        };
+      });
+      setPhases(phasesWithDefaults);
+    } catch {
+      // ignore
+    } finally {
+      setAnalysing(false);
+    }
+  };
+
+  const handleConfirmPhasesGeneric = async () => {
+    if (!id) return;
+    await updateSession(id, { phases: phases as any });
+    setPhasesConfirmed(true);
+
+    // Auto-set max_rounds based on phases
+    const minPerPhase = 15;
+    const estimatedTotal = phases.length * minPerPhase;
+    if (settings.max_rounds < estimatedTotal) {
+      setSettings((s) => ({ ...s, max_rounds: Math.round(estimatedTotal * 1.5) }));
+    }
+
+    // Auto-suggest agents if none added yet
+    if (nodes.length === 0) {
+      handleSuggestAgents();
+    }
+  };
+
   const handleConfirmPhases = async () => {
     if (!id) return;
     await api.post(`/sessions/${id}/stress/confirm-phases`, { phases, review_instructions: reviewInstructions });
@@ -381,7 +434,7 @@ export default function Canvas() {
           <DocumentUpload documents={uploadedDocs} onChange={setUploadedDocs} />
         )}
         <ProblemStatement value={problemStatement} onChange={setProblemStatement} mode={mode} />
-        <ModeSelector value={mode} onChange={setMode} />
+        <ModeSelector value={mode} onChange={(m) => { setMode(m); if (m !== mode) { setPhases([]); setPhasesConfirmed(false); setSuggestedAgents([]); } }} />
 
         {/* Analyse Documents button (stress_test only) */}
         {mode === 'stress_test' && uploadedDocs.length > 0 && problemStatement.length > 20 && !phases.length && (
@@ -402,8 +455,27 @@ export default function Canvas() {
           )
         )}
 
+        {/* Analyse Problem button (product/problem modes) */}
+        {mode !== 'stress_test' && problemStatement.length > 20 && !phases.length && (
+          analysing ? (
+            <div className="w-full py-4 rounded-lg text-center" style={{ border: '1px solid var(--color-teal-dim)', background: 'var(--color-navy)' }}>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '300ms' }} />
+              </div>
+              <p className="text-xs" style={{ color: 'var(--color-teal-dim)' }}>Analysing problem statement...</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>Designing discussion phases</p>
+            </div>
+          ) : (
+            <button onClick={handleAnalyseProblem} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}>
+              Analyse Problem
+            </button>
+          )
+        )}
+
         {/* Suggest Agents button */}
-        {mode !== 'stress_test' && (
+        {mode !== 'stress_test' && phasesConfirmed && (
         <button
           onClick={handleSuggestAgents}
           disabled={suggestingAgents || problemStatement.length < 20}
@@ -439,21 +511,21 @@ export default function Canvas() {
 
         <AdvancedSettings settings={settings} onChange={setSettings} mode={mode} phaseCount={phases.length} />
         <button onClick={handleSave} className="w-full py-2 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Save Draft</button>
-        <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2 || (mode === 'stress_test' && !phasesConfirmed)} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
+        <button onClick={handleBeginClick} disabled={!problemStatement || nodes.length < 2 || !phasesConfirmed} className="w-full py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-40" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Begin Symposium</button>
         {nodes.length < 2 && (<p className="text-[10px]" style={{ color: '#fbbf24' }}>Add at least 2 agents to begin</p>)}
       </div>
       <div className="flex-1 h-full">
-        {mode === 'stress_test' && phases.length > 0 && !phasesConfirmed ? (
+        {phases.length > 0 && !phasesConfirmed ? (
           <div className="h-full overflow-y-auto p-6">
             <PhaseCards
               phases={phases}
               onChange={setPhases}
-              onReinterpret={handleReinterpret}
-              onConfirm={handleConfirmPhases}
-              reinterpreting={reinterpreting}
+              onReinterpret={mode === 'stress_test' ? handleReinterpret : handleAnalyseProblem}
+              onConfirm={mode === 'stress_test' ? handleConfirmPhases : handleConfirmPhasesGeneric}
+              reinterpreting={mode === 'stress_test' ? reinterpreting : analysing}
               confirmed={phasesConfirmed}
             />
-            {reviewInstructions && (
+            {mode === 'stress_test' && reviewInstructions && (
               <div className="mt-4">
                 <label className="text-[10px] block mb-1 uppercase tracking-wider" style={{ color: 'var(--color-text-dim)' }}>Review Instructions (editable)</label>
                 <textarea
@@ -469,7 +541,7 @@ export default function Canvas() {
         ) : (
           <div className="flex-1 h-full flex flex-col min-h-0">
             {/* Compact phase summary when confirmed */}
-            {mode === 'stress_test' && phasesConfirmed && phases.length > 0 && (
+            {phasesConfirmed && phases.length > 0 && (
               <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-x-auto" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
                 <span className="text-[10px] uppercase tracking-wider shrink-0" style={{ color: 'var(--color-text-dim)' }}>Phases:</span>
                 {phases.map((p, i) => (
@@ -485,9 +557,11 @@ export default function Canvas() {
             )}
 
             {/* Agent suggestion loading */}
-            {mode === 'stress_test' && phasesConfirmed && suggestingAgents && (
+            {phasesConfirmed && suggestingAgents && (
               <div className="flex items-center justify-center py-8">
-                <div className="text-sm animate-pulse" style={{ color: 'var(--color-teal-dim)' }}>Suggesting review agents based on your documents and phases...</div>
+                <div className="text-sm animate-pulse" style={{ color: 'var(--color-teal-dim)' }}>
+                  {mode === 'stress_test' ? 'Suggesting review agents based on your documents and phases...' : 'Suggesting agents based on your problem and phases...'}
+                </div>
               </div>
             )}
 
@@ -515,7 +589,7 @@ export default function Canvas() {
 
             <div className="mb-4">
               <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>Mode</p>
-              <p className="text-sm" style={{ color: 'var(--color-text)' }}>{mode === 'product' ? 'Product Discussion' : 'Problem Discussion'}</p>
+              <p className="text-sm" style={{ color: 'var(--color-text)' }}>{mode === 'product' ? 'Product Discussion' : mode === 'stress_test' ? 'Stress Test' : 'Problem Discussion'}</p>
             </div>
 
             <div className="mb-4">

@@ -66,9 +66,13 @@ export default function Results() {
     const order = (t: string) => {
       if (t.includes('executive')) return 0;
       if (t.includes('verdict')) return 1;
-      if (t.includes('phase')) return 2;
+      if (t.includes('synthesis')) return 2;
+      if (t.includes('prd') && !t.includes('panel')) return 3;
+      if (t.includes('conclusion')) return 2;
+      if (t.includes('phase')) return 4;
+      if (t.includes('prd_panel')) return 5;
       if (t.includes('transcript')) return 9;
-      return 5;
+      return 6;
     };
     const diff = order(a) - order(b);
     if (diff !== 0) return diff;
@@ -111,7 +115,7 @@ export default function Results() {
               title="Click to rename"
             >{currentSession.name}</h1>
           )}
-          <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>{currentSession.mode === 'product' ? 'Product Discussion' : 'Problem Discussion'} · Completed {currentSession.completed_at ? new Date(currentSession.completed_at).toLocaleString() : ''}</p>
+          <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>{currentSession.mode === 'product' ? 'Product Discussion' : currentSession.mode === 'stress_test' ? 'Stress Test Review' : 'Problem Discussion'} · Completed {currentSession.completed_at ? new Date(currentSession.completed_at).toLocaleString() : ''}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => navigate(`/canvas/${id}`)} className="px-3 py-2 rounded-lg text-xs" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Re-run</button>

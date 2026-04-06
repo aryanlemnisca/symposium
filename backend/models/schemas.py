@@ -31,6 +31,7 @@ class Phase(BaseModel):
     focus_question: str = ""
     key_subquestions: list[str] = []
     artifact_schema: list[str] = []        # section headings for the phase artifact
+    critical: bool = False
     rationale: str = ""
     status: PhaseStatus = PhaseStatus.pending
     start_round: Optional[int] = None
@@ -157,3 +158,8 @@ class AgentSuggestionRequest(BaseModel):
 
 class AgentSuggestionResponse(BaseModel):
     agents: list[dict]
+
+
+class PhaseSuggestionRequest(BaseModel):
+    problem_statement: str
+    mode: str = "product"  # "product" | "problem"

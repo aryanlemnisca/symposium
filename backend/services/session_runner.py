@@ -1,4 +1,4 @@
-"""Session runner — wraps engine, emits WebSocket events."""
+"""Session runner — routes to mode-specific engines, emits WebSocket events."""
 
 import asyncio
 import json
@@ -9,12 +9,10 @@ from sqlalchemy.orm import Session as DBSession
 
 from backend.models.session import Session, SessionStatus
 from backend.engine.config import EngineConfig
-from backend.engine.brainstorm import run_brainstorm
-from backend.engine.prd_panel import run_prd_mini_panel
-from backend.engine.conclusion import generate_conclusion
-from backend.engine.synthesis import generate_synthesis_and_prd
-from backend.engine.outputs import build_transcript, build_artifact
+from backend.engine.product_brainstorm import run_product_session
+from backend.engine.problem_brainstorm import run_problem_session
 from backend.engine.stress_brainstorm import run_stress_test
+from backend.engine.outputs import build_transcript
 
 
 class SessionRunner:
@@ -46,6 +44,8 @@ class SessionRunner:
             stress_test_min_rounds_per_phase=settings.get("stress_test_min_rounds_per_phase", 20),
         )
 
+        phases = session.phases or []
+
         session.status = SessionStatus.running
         self.db.commit()
 
@@ -53,7 +53,6 @@ class SessionRunner:
             mode = config.mode
 
             if mode == "stress_test":
-                phases = session.phases or []
                 documents = session.uploaded_documents or []
                 review_instructions = session.stress_review_instructions or ""
 
@@ -93,54 +92,33 @@ class SessionRunner:
                 })
 
             elif mode == "product":
-                messages, stats, living_artifact = await run_brainstorm(config, self.emit)
-
-                await self.emit("phase_transition", {"phase": "synthesis"})
-                panel_messages = await run_prd_mini_panel(config, living_artifact, self.emit)
-                synthesis_text, prd_text = await generate_synthesis_and_prd(
-                    config.main_model, config.gemini_api_key, config.temperature,
-                    panel_messages,
+                all_messages, stats, outputs = await run_product_session(
+                    config, phases, self.emit,
                 )
-                outputs = {
-                    "transcript.md": build_transcript(messages, {**stats, "model": config.main_model, "max_rounds": config.max_rounds}, config.agent_names),
-                    "artifact.md": build_artifact(living_artifact),
-                    "synthesis.md": f"# Final Synthesis Report\n\n{synthesis_text}",
-                    "prd.md": prd_text,
-                }
 
+                # Save phase artifacts back to session
+                session.phases = phases
+                session.outputs = outputs
+                session.transcript = outputs.get("transcript.md", "")
                 session.status = SessionStatus.complete
                 session.completed_at = datetime.now(timezone.utc)
-                session.transcript = outputs.get("transcript.md", "")
-                session.artifact = living_artifact
-                session.outputs = outputs
                 self.db.commit()
 
-                await self.emit("session_complete", {
-                    "terminated_by": stats["terminated_by"],
-                    "outputs": list(outputs.keys()),
-                })
+            elif mode == "problem_discussion":
+                all_messages, stats, outputs = await run_problem_session(
+                    config, phases, self.emit,
+                )
+
+                # Save phase artifacts back to session
+                session.phases = phases
+                session.outputs = outputs
+                session.transcript = outputs.get("transcript.md", "")
+                session.status = SessionStatus.complete
+                session.completed_at = datetime.now(timezone.utc)
+                self.db.commit()
 
             else:
-                messages, stats, living_artifact = await run_brainstorm(config, self.emit)
-
-                conclusion_text = await generate_conclusion(config, messages, living_artifact, self.emit)
-                outputs = {
-                    "transcript.md": build_transcript(messages, {**stats, "model": config.main_model, "max_rounds": config.max_rounds}, config.agent_names),
-                    "artifact.md": build_artifact(living_artifact),
-                    "conclusion.md": conclusion_text,
-                }
-
-                session.status = SessionStatus.complete
-                session.completed_at = datetime.now(timezone.utc)
-                session.transcript = outputs.get("transcript.md", "")
-                session.artifact = living_artifact
-                session.outputs = outputs
-                self.db.commit()
-
-                await self.emit("session_complete", {
-                    "terminated_by": stats["terminated_by"],
-                    "outputs": list(outputs.keys()),
-                })
+                raise ValueError(f"Unknown session mode: {mode}")
 
         except Exception as e:
             session.status = SessionStatus.error

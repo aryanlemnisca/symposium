@@ -1,8 +1,9 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import require_auth
-from backend.models.schemas import ReviewRequest, AgentSuggestionRequest
+from backend.models.schemas import ReviewRequest, AgentSuggestionRequest, PhaseSuggestionRequest
 from backend.services import ai_suggest
+from backend.engine.phase_suggest import suggest_phases
 
 router = APIRouter(prefix="/api/suggest", tags=["suggest"], dependencies=[Depends(require_auth)])
 
@@ -68,3 +69,10 @@ async def enhance_persona(body: dict):
 async def suggest_agents(req: AgentSuggestionRequest):
     result = await ai_suggest.suggest_agents(req.problem_statement, req.mode, _get_api_key())
     return {"agents": result}
+
+
+@router.post("/phases")
+async def suggest_phases_endpoint(req: PhaseSuggestionRequest):
+    api_key = _get_api_key()
+    result = await suggest_phases(req.problem_statement, req.mode, api_key)
+    return {"phases": result}
