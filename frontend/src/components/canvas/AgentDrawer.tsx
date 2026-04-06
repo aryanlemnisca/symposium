@@ -127,7 +127,7 @@ export default function AgentDrawer() {
             <span style={{ color: 'var(--color-text-dim)' }}>Distinctiveness: <strong style={{ color: (reviewResult.distinctiveness as string) === 'High' ? '#2dd4bf' : (reviewResult.distinctiveness as string) === 'Medium' ? '#fbbf24' : '#f87171' }}>{reviewResult.distinctiveness as string}</strong></span>
             <button onClick={() => setReviewResult(null)} className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>close</button>
           </div>
-          {reviewResult.distinctiveness_reason && (
+          {!!reviewResult.distinctiveness_reason && (
             <p style={{ color: 'var(--color-text-dim)' }}>{String(reviewResult.distinctiveness_reason)}</p>
           )}
           {(reviewResult.missing_sections as string[])?.length > 0 && (
