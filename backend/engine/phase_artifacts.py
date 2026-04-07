@@ -106,15 +106,18 @@ async def generate_phase_artifact(
     )
 
     # Carry-forward section
+    def _stringify(items):
+        return [str(i) if not isinstance(i, dict) else (i.get("item") or i.get("claim") or i.get("question") or str(i)) for i in items]
+
     carry_forward_section = ""
     if carry_forward:
         parts = []
         if carry_forward.get("confirmed"):
-            parts.append("Previously confirmed: " + "; ".join(carry_forward["confirmed"]))
+            parts.append("Previously confirmed: " + "; ".join(_stringify(carry_forward["confirmed"])))
         if carry_forward.get("contested"):
-            parts.append("Previously contested: " + "; ".join(carry_forward["contested"]))
+            parts.append("Previously contested: " + "; ".join(_stringify(carry_forward["contested"])))
         if carry_forward.get("open_questions"):
-            parts.append("Previously open: " + "; ".join(carry_forward["open_questions"]))
+            parts.append("Previously open: " + "; ".join(_stringify(carry_forward["open_questions"])))
         if parts:
             carry_forward_section = "CARRY-FORWARD FROM PREVIOUS PHASES:\n" + "\n".join(parts)
 

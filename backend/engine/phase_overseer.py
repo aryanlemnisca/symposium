@@ -194,17 +194,20 @@ class PhaseOverseer:
             )
 
         # Carry-forward from previous phases
+        def _stringify(items):
+            return [str(i) if not isinstance(i, dict) else (i.get("item") or i.get("claim") or i.get("question") or str(i)) for i in items]
+
         carry_parts = []
         if self.carry_forward["confirmed"]:
             carry_parts.append(
                 "Carried forward from previous phases:"
             )
             carry_parts.append(
-                "CONFIRMED: " + "; ".join(self.carry_forward["confirmed"])
+                "CONFIRMED: " + "; ".join(_stringify(self.carry_forward["confirmed"]))
             )
         if self.carry_forward["contested"]:
             carry_parts.append(
-                "CONTESTED: " + "; ".join(self.carry_forward["contested"])
+                "CONTESTED: " + "; ".join(_stringify(self.carry_forward["contested"]))
             )
         carry_forward_text = "\n".join(carry_parts) if carry_parts else ""
 
