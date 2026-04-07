@@ -68,34 +68,6 @@ PRODUCT_PHASES = [
         "critical": True,
         "rationale": "Rigorous critique before convergence prevents wasted effort on unviable paths.",
     },
-    {
-        "number": 5,
-        "name": "Convergence & Prioritization",
-        "focus_question": "Which direction should we commit to and why?",
-        "key_subquestions": [
-            "What is the strongest concept after critique?",
-            "What must the MVP include vs. defer?",
-            "What are the key success metrics?",
-            "What trade-offs are we accepting?",
-        ],
-        "artifact_schema": ["Selected Direction", "MVP Scope", "Deferred Items", "Success Metrics"],
-        "critical": False,
-        "rationale": "Explicit convergence with clear rationale aligns the team on next steps.",
-    },
-    {
-        "number": 6,
-        "name": "Product Detailing & Architecture",
-        "focus_question": "What are the concrete product specs and technical decisions?",
-        "key_subquestions": [
-            "What is the user flow end-to-end?",
-            "What are the key UX decisions?",
-            "What is the high-level technical architecture?",
-            "What are the biggest open questions for implementation?",
-        ],
-        "artifact_schema": ["User Flow", "UX Decisions", "Architecture", "Implementation Risks"],
-        "critical": False,
-        "rationale": "Detailing the chosen direction catches ambiguity before implementation begins.",
-    },
 ]
 
 PROBLEM_PHASES = [

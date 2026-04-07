@@ -30,7 +30,7 @@ const defaultSettings: SessionSettings = {
   gate_start_round: 10,
   overseer_interval: 10,
   min_rounds_before_convergence: 45,
-  prd_panel_rounds: 10,
+  prd_panel_rounds: 20,
 };
 
 interface SuggestedAgent {
