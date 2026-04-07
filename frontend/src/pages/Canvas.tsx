@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, Background, BackgroundVariant, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -132,6 +132,16 @@ export default function Canvas() {
       setLoaded(true);
     }
   }, [currentSession, loaded, addAgent]);
+
+  // Auto-resume live view if session is already running (one-shot)
+  const autoResumedRef = useRef(false);
+  useEffect(() => {
+    if (loaded && currentSession?.status === 'running' && !autoResumedRef.current) {
+      autoResumedRef.current = true;
+      setIsLive(true);
+      connect();
+    }
+  }, [loaded, currentSession?.status, connect]);
 
   const handleSave = useCallback(async () => {
     if (!id) return;
