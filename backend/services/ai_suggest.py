@@ -346,6 +346,17 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
     raw = await _ask(system, prompt, api_key, temperature=0.5)
     result = _parse_json(raw)
     if result and isinstance(result, list):
+        # Backfill missing fields with sensible defaults
+        for agent in result:
+            if not agent.get("role_tag"):
+                # Derive role_tag from name (e.g. Red_Team_Skeptic -> Red Team)
+                name = agent.get("name", "")
+                agent["role_tag"] = name.replace("_", " ").rstrip("s")[:30] if name else "Agent"
+            if not agent.get("rationale"):
+                agent["rationale"] = agent.get("mission") or f"Brings {agent['role_tag']} perspective to the discussion."
+            if not agent.get("mission"):
+                agent["mission"] = agent["rationale"]
+
         # Auto-enable web_search ONLY for the dedicated Researcher agent.
         # Optionally also enable for the Domain Expert (max 1 additional).
         researcher_enabled = False
