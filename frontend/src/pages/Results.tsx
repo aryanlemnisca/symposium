@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
 import MarkdownRenderer from '../components/shared/MarkdownRenderer';
 import SaveTemplateModal from '../components/shared/SaveTemplateModal';
+import LoadingDots from '../components/shared/LoadingDots';
 
 export default function Results() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function Results() {
   };
 
   if (!currentSession) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-navy)', color: 'var(--color-text-dim)' }}>Loading...</div>;
+    return <LoadingDots centered label="Loading results" />;
   }
 
   const outputs = currentSession.outputs || {};

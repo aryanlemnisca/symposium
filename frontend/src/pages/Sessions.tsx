@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
 import { useAuthStore } from '../store/authStore';
+import LoadingDots from '../components/shared/LoadingDots';
 
 export default function Sessions() {
   const { sessions, loading, fetchSessions, createSession, deleteSession } = useSessionStore();
@@ -41,7 +42,7 @@ export default function Sessions() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'var(--color-text-dim)' }}>Loading...</p>
+          <div className="py-8 flex justify-center"><LoadingDots label="Loading sessions" /></div>
         ) : sessions.length === 0 ? (
           <div className="text-center py-16 rounded-xl" style={{ background: 'var(--color-navy-light)', border: '1px solid var(--color-border)' }}>
             <p className="text-lg mb-2" style={{ color: 'var(--color-text-dim)' }}>No sessions yet</p>

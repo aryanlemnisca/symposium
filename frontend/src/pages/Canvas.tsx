@@ -19,6 +19,7 @@ import LiveFeed from '../components/session/LiveFeed';
 import ArtifactPanel from '../components/session/ArtifactPanel';
 import StatsBar from '../components/session/StatsBar';
 import DocumentSidebar from '../components/session/DocumentSidebar';
+import LoadingDots from '../components/shared/LoadingDots';
 import type { UploadedDocument, Phase } from '../store/sessionStore';
 
 const nodeTypes = { agentNode: AgentNode };
@@ -391,7 +392,7 @@ export default function Canvas() {
   };
 
   if (!currentSession) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-navy)', color: 'var(--color-text-dim)' }}>Loading...</div>;
+    return <LoadingDots centered label="Loading session" />;
   }
 
   if (isLive) {
@@ -458,11 +459,7 @@ export default function Canvas() {
         {mode === 'stress_test' && uploadedDocs.length > 0 && problemStatement.length > 20 && !phases.length && (
           analysing ? (
             <div className="w-full py-4 rounded-lg text-center" style={{ border: '1px solid var(--color-teal-dim)', background: 'var(--color-navy)' }}>
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '300ms' }} />
-              </div>
+              <div className="flex justify-center mb-2"><LoadingDots /></div>
               <p className="text-xs" style={{ color: 'var(--color-teal-dim)' }}>Analysing {uploadedDocs.length} documents...</p>
               <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>Designing review phases and artifact schemas</p>
             </div>
@@ -477,11 +474,7 @@ export default function Canvas() {
         {mode !== 'stress_test' && problemStatement.length > 20 && !phases.length && (
           analysing ? (
             <div className="w-full py-4 rounded-lg text-center" style={{ border: '1px solid var(--color-teal-dim)', background: 'var(--color-navy)' }}>
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--color-teal)', animationDelay: '300ms' }} />
-              </div>
+              <div className="flex justify-center mb-2"><LoadingDots /></div>
               <p className="text-xs" style={{ color: 'var(--color-teal-dim)' }}>Analysing problem statement...</p>
               <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>Designing discussion phases</p>
             </div>
