@@ -61,8 +61,8 @@ STYLE: [2-3 sentences. Tone, register, speech patterns.
  One specific verbal habit or signature phrase.]"""
 
 
-async def _ask(system: str, user_prompt: str, api_key: str) -> str:
-    client = make_client(model=SUPPORT_MODEL, api_key=api_key, temperature=0.3)
+async def _ask(system: str, user_prompt: str, api_key: str, temperature: float = 0.3) -> str:
+    client = make_client(model=SUPPORT_MODEL, api_key=api_key, temperature=temperature)
     agent = AssistantAgent(name="Suggester", system_message=system, model_client=client)
     response = await agent.on_messages(
         [TextMessage(content=user_prompt, source="user")], CancellationToken()
@@ -131,11 +131,12 @@ async def inline_suggestion(text: str, api_key: str) -> str:
 
 async def review_problem_statement(text: str, api_key: str) -> dict:
     system = (
-        "You are an expert at designing structured multi-agent brainstorming sessions. "
-        "A good problem statement should clearly define: the target user, the context, "
-        "the problem space (what is in scope and out of scope), why this problem matters, "
-        "and what kind of output the session should produce. It should NOT jump into "
-        "solutions — it should frame the problem so agents can brainstorm effectively."
+        "You are an expert at designing structured multi-agent brainstorming sessions for product ideation. "
+        "A strong problem statement names one specific person (not a team), constrains the solution space with hard limits, "
+        "and ends with a core question where a wrong answer is genuinely possible. "
+        "If the problem involves a free product that bridges to paid, the wedge must be intrinsic — "
+        "the user hits a natural limit inside the free tool, not a pop-up. "
+        "Vague problem statements produce vague brainstorms. Be specific and constraining."
     )
     prompt = (
         f'Review and enhance this problem statement for a multi-agent product brainstorming session:\n\n'
@@ -254,9 +255,12 @@ async def enhance_persona(name: str, persona: str, role_tag: str, other_agents: 
         f'The first line MUST be: "You are {name} — the [TITLE IN CAPS]."\n'
         f'NEVER use "participant N" — always use the agent\'s actual name.\n'
         f'Make sure this agent is clearly DISTINCT from the other agents listed above.\n'
+        f'CRITICAL: The section "WHAT A BAD IDEA LOOKS LIKE TO YOU" is MANDATORY and often missing. '
+        f'It must name specific failure modes this agent will call out — not generic criticisms. '
+        f'Without this section, the agent will not create productive tension.\n'
         f'The persona should be 350-550 words. Shorter personas cut corners on HOW YOU INTERACT and DEFAULT QUESTIONS.'
     )
-    return await _ask(system, prompt, api_key)
+    return await _ask(system, prompt, api_key, temperature=0.5)
 
 
 async def suggest_prd_panel(agents: list, problem_statement: str, api_key: str) -> list:
@@ -338,7 +342,7 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
         f'IMPORTANT: Each persona MUST start with "You are [Name] — the [TITLE]." '
         f'NEVER use "participant N". Agents must refer to each other by NAME, not number.'
     )
-    raw = await _ask(system, prompt, api_key)
+    raw = await _ask(system, prompt, api_key, temperature=0.5)
     result = _parse_json(raw)
     if result and isinstance(result, list):
         # Auto-enable web_search for agents that benefit from real-world data
