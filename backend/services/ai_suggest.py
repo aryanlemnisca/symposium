@@ -343,7 +343,7 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
         f'IMPORTANT: Each persona MUST start with "You are [Name] — the [TITLE]." '
         f'NEVER use "participant N". Agents must refer to each other by NAME, not number.'
     )
-    raw = await _ask(system, prompt, api_key, temperature=0.5)
+    raw = await _ask(system, prompt, api_key, temperature=0.4)
     result = _parse_json(raw)
     if result and isinstance(result, list):
         # Backfill missing fields with sensible defaults
