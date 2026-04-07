@@ -346,13 +346,21 @@ async def suggest_agents(problem_statement: str, mode: str, api_key: str) -> lis
     raw = await _ask(system, prompt, api_key, temperature=0.5)
     result = _parse_json(raw)
     if result and isinstance(result, list):
-        # Auto-enable web_search for agents that benefit from real-world data
-        web_search_roles = ["research", "analyst", "market", "domain", "expert", "strategist"]
+        # Auto-enable web_search ONLY for the dedicated Researcher agent.
+        # Optionally also enable for the Domain Expert (max 1 additional).
+        researcher_enabled = False
+        domain_expert_enabled = False
         for agent in result:
             role = (agent.get("role_tag", "") or "").lower()
             name = (agent.get("name", "") or "").lower()
-            persona = (agent.get("persona", "") or "").lower()
-            if any(kw in role or kw in name for kw in web_search_roles) or "data" in persona[:100]:
+            # Researcher: always gets web search
+            if not researcher_enabled and ("research" in name or "research" in role):
                 agent["tools"] = ["web_search"]
+                researcher_enabled = True
+                continue
+            # Domain Expert: gets web search if not already given (only one)
+            if not domain_expert_enabled and ("expert" in name or "expert" in role or "specialist" in name or "specialist" in role):
+                agent["tools"] = ["web_search"]
+                domain_expert_enabled = True
         return result
     return []
