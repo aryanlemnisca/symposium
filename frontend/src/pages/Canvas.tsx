@@ -459,11 +459,11 @@ export default function Canvas() {
           <h2 className="text-lg font-bold" style={{ color: 'var(--color-teal)' }}>Setup</h2>
           <button onClick={() => navigate('/sessions')} className="text-xs" style={{ color: 'var(--color-text-dim)' }}>Back</button>
         </div>
+        <ModeSelector value={mode} onChange={(m) => { setMode(m); if (m !== mode) { setPhases([]); setPhasesConfirmed(false); setSuggestedAgents([]); } }} />
         {mode === 'stress_test' && (
           <DocumentUpload documents={uploadedDocs} onChange={setUploadedDocs} />
         )}
         <ProblemStatement value={problemStatement} onChange={setProblemStatement} mode={mode} />
-        <ModeSelector value={mode} onChange={(m) => { setMode(m); if (m !== mode) { setPhases([]); setPhasesConfirmed(false); setSuggestedAgents([]); } }} />
 
         {/* Analyse Documents button (stress_test only) */}
         {mode === 'stress_test' && uploadedDocs.length > 0 && problemStatement.length > 20 && !phases.length && (

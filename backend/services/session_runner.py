@@ -123,6 +123,28 @@ class SessionRunner:
             else:
                 raise ValueError(f"Unknown session mode: {mode}")
 
+            # Auto-generate session name if still the default placeholder
+            if session.status == SessionStatus.complete:
+                current_name = (session.name or "").strip().lower()
+                if current_name in ("", "untitled", "new session"):
+                    try:
+                        from backend.services.ai_suggest import generate_session_title
+                        title = await generate_session_title(
+                            session.problem_statement or "", self.api_key
+                        )
+                        if title:
+                            mode_label = {
+                                "product": "Product Mode",
+                                "problem_discussion": "Problem Mode",
+                                "stress_test": "Stress Test Mode",
+                            }.get(mode, mode.replace("_", " ").title() + " Mode")
+                            full_title = f"{title} - {mode_label}"
+                            session.name = full_title
+                            self.db.commit()
+                            await self.emit("session_renamed", {"name": full_title})
+                    except Exception:
+                        pass
+
         except asyncio.CancelledError:
             # Session was stopped by user
             session.status = SessionStatus.error

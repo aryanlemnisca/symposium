@@ -14,7 +14,7 @@ export default function Sessions() {
   }, [fetchSessions]);
 
   const handleNew = async () => {
-    const session = await createSession({ name: 'New Session' });
+    const session = await createSession({ name: 'Untitled' });
     navigate(`/canvas/${session.id}`);
   };
 
@@ -62,7 +62,7 @@ export default function Sessions() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--color-navy)', color: statusColor(s.status) }}>{s.status}</span>
-                  <button onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} className="text-xs px-2 py-1 rounded hover:bg-red-900/30 text-red-400">Delete</button>
+                  <button onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete "${s.title || 'this session'}"? This cannot be undone.`)) deleteSession(s.id); }} className="text-xs px-2 py-1 rounded hover:bg-red-900/30 text-red-400">Delete</button>
                 </div>
               </div>
             ))}

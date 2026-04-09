@@ -264,6 +264,26 @@ async def enhance_persona(name: str, persona: str, role_tag: str, other_agents: 
     return await _ask(system, prompt, api_key, temperature=0.5)
 
 
+async def generate_session_title(problem_statement: str, api_key: str) -> str:
+    """Generate a short, descriptive title for a completed session."""
+    if not problem_statement.strip():
+        return ""
+    system = (
+        "You name brainstorming sessions. Produce a short, specific title (3-7 words) "
+        "that captures the core subject. No quotes, no trailing punctuation, no generic "
+        "words like 'session' or 'discussion'."
+    )
+    prompt = (
+        f'Problem statement:\n"""{problem_statement[:2000]}"""\n\n'
+        f'Return ONLY the title text. No quotes, no prefix, no explanation.'
+    )
+    raw = await _ask(system, prompt, api_key, temperature=0.3)
+    title = (raw or "").strip().strip('"').strip("'").strip()
+    # Take first line only
+    title = title.splitlines()[0] if title else ""
+    return title[:80]
+
+
 async def suggest_prd_panel(agents: list, problem_statement: str, api_key: str) -> list:
     """Suggest which agents should be on the PRD panel. Always includes a product-focused agent."""
     system = (

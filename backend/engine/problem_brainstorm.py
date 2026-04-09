@@ -260,6 +260,10 @@ async def run_problem_session(
 
     # 2. Create PhaseOverseer (no documents)
     min_rounds = getattr(config, "stress_test_min_rounds_per_phase", 10)
+    # Scale global round budget to the per-phase minimum so the overseer
+    # is the sole authority on phase transitions (prevents late phases
+    # getting squeezed to 4-5 rounds by a too-low session-wide cap).
+    config.max_rounds = max(config.max_rounds, len(phases) * min_rounds)
     overseer = PhaseOverseer(
         support_agent=support_agent,
         phases=phases,
