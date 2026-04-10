@@ -567,10 +567,10 @@ export default function Canvas() {
             )}
           </div>
         ) : (
-          <div className="flex-1 h-full flex flex-col min-h-0">
+          <div className="flex-1 h-full flex flex-col min-h-0 relative">
             {/* Compact phase summary when confirmed */}
             {phasesConfirmed && phases.length > 0 && (
-              <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-visible relative z-10" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
+              <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-visible relative z-20" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
                 <span className="text-[10px] uppercase tracking-wider shrink-0" style={{ color: 'var(--color-text-dim)' }}>Phases:</span>
                 {phases.map((p, i) => (
                   <div key={i} className="relative flex items-center gap-1.5 shrink-0 group">
@@ -618,7 +618,7 @@ export default function Canvas() {
               </div>
             )}
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 relative z-0">
               <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={handleNodeClick} nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }}>
                 <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e2438" />
               </ReactFlow>
