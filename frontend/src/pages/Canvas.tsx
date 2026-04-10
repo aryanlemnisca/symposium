@@ -162,18 +162,22 @@ export default function Canvas() {
     });
   }, [id, nodes, problemStatement, mode, settings, updateSession, currentSession?.name]);
 
+  const [suggestError, setSuggestError] = useState('');
   const handleSuggestAgents = async () => {
     if (!problemStatement || problemStatement.length < 20) return;
     setSuggestingAgents(true);
     setSuggestedAgents([]);
+    setSuggestError('');
     try {
       const res = await api.post<{ agents: SuggestedAgent[] }>('/suggest/agents', {
         problem_statement: problemStatement,
         mode,
       });
-      setSuggestedAgents(res.agents || []);
+      const agents = res.agents || [];
+      setSuggestedAgents(agents);
+      if (agents.length === 0) setSuggestError('No agents returned — try again');
     } catch {
-      // ignore
+      setSuggestError('Agent suggestion failed — try again');
     } finally {
       setSuggestingAgents(false);
     }
@@ -495,16 +499,19 @@ export default function Canvas() {
           )
         )}
 
-        {/* Suggest Agents button */}
-        {mode !== 'stress_test' && phasesConfirmed && (
-        <button
-          onClick={handleSuggestAgents}
-          disabled={suggestingAgents || problemStatement.length < 20}
-          className="w-full py-2 rounded-lg text-sm disabled:opacity-40"
-          style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}
-        >
-          {suggestingAgents ? 'Generating agents...' : 'Suggest Agents'}
-        </button>
+        {/* Suggest Agents button — always visible when phases confirmed */}
+        {phasesConfirmed && (
+        <div>
+          <button
+            onClick={handleSuggestAgents}
+            disabled={suggestingAgents || problemStatement.length < 20}
+            className="w-full py-2 rounded-lg text-sm disabled:opacity-40"
+            style={{ border: '1px solid var(--color-teal-dim)', color: 'var(--color-teal-dim)' }}
+          >
+            {suggestingAgents ? 'Generating agents...' : suggestedAgents.length > 0 ? 'Re-suggest Agents' : 'Suggest Agents'}
+          </button>
+          {suggestError && <p className="text-[10px] mt-1" style={{ color: '#f87171' }}>{suggestError}</p>}
+        </div>
         )}
 
         {/* Suggested agents list */}
@@ -566,11 +573,36 @@ export default function Canvas() {
               <div className="shrink-0 px-4 py-3 flex items-center gap-3 overflow-x-auto" style={{ background: 'var(--color-navy-light)', borderBottom: '1px solid var(--color-border)' }}>
                 <span className="text-[10px] uppercase tracking-wider shrink-0" style={{ color: 'var(--color-text-dim)' }}>Phases:</span>
                 {phases.map((p, i) => (
-                  <div key={i} className="flex items-center gap-1.5 shrink-0">
+                  <div key={i} className="relative flex items-center gap-1.5 shrink-0 group">
                     {i > 0 && <span style={{ color: 'var(--color-border)' }}>→</span>}
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px]" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal-dim)' }}>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] cursor-pointer transition-colors" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal-dim)' }}>
                       <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>{p.number}</span>
                       <span style={{ color: 'var(--color-text)' }}>{p.name}</span>
+                    </div>
+                    {/* Expanded card on hover */}
+                    <div className="hidden group-hover:block absolute top-full left-0 mt-1 z-50 w-72 p-3 rounded-lg shadow-xl text-xs" style={{ background: 'var(--color-navy)', border: '1px solid var(--color-teal-dim)' }}>
+                      <p className="font-medium mb-1" style={{ color: 'var(--color-teal)' }}>{p.number}. {p.name}</p>
+                      {p.focus_question && <p className="mb-2" style={{ color: 'var(--color-text)' }}><span style={{ color: 'var(--color-text-dim)' }}>Focus: </span>{p.focus_question}</p>}
+                      {p.key_subquestions && p.key_subquestions.length > 0 && (
+                        <div className="mb-2">
+                          <span className="text-[10px] uppercase" style={{ color: 'var(--color-text-dim)' }}>Subquestions</span>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {p.key_subquestions.map((q: string, qi: number) => (
+                              <li key={qi} style={{ color: 'var(--color-text)' }}>• {q}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {p.artifact_schema && (Array.isArray(p.artifact_schema) ? p.artifact_schema : []).length > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase" style={{ color: 'var(--color-text-dim)' }}>Artifact Schema</span>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {(Array.isArray(p.artifact_schema) ? p.artifact_schema : []).map((s: string, si: number) => (
+                              <li key={si} style={{ color: 'var(--color-text)' }}>• {s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
