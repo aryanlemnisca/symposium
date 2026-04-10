@@ -12,9 +12,7 @@ export default function Results() {
   const [activeTab, setActiveTab] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
-  const [showTemplateModal, setShowTemplateModal] = useState(() => {
-    return !localStorage.getItem(`template_dismissed_${id}`);
-  });
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   useEffect(() => {
     if (id) fetchSession(id);
@@ -119,6 +117,7 @@ export default function Results() {
           <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>{currentSession.mode === 'product' ? 'Product Discussion' : currentSession.mode === 'stress_test' ? 'Stress Test Review' : 'Problem Discussion'} · Completed {currentSession.completed_at ? new Date(currentSession.completed_at).toLocaleString() : ''}</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setShowTemplateModal(true)} className="px-3 py-2 rounded-lg text-xs" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Save Template</button>
           <button onClick={() => navigate(`/canvas/${id}`)} className="px-3 py-2 rounded-lg text-xs" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>Re-run</button>
           <button onClick={handleDownloadZip} className="px-3 py-2 rounded-lg text-xs font-medium" style={{ background: 'var(--color-teal)', color: 'var(--color-navy)' }}>Download ZIP</button>
         </div>
@@ -149,7 +148,7 @@ export default function Results() {
       </div>
 
       {showTemplateModal && currentSession.status === 'complete' && (
-        <SaveTemplateModal session={currentSession} onClose={() => { setShowTemplateModal(false); localStorage.setItem(`template_dismissed_${id}`, '1'); }} />
+        <SaveTemplateModal session={currentSession} onClose={() => setShowTemplateModal(false)} />
       )}
     </div>
   );
